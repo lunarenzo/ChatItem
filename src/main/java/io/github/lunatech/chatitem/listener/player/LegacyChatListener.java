@@ -82,7 +82,6 @@ public class LegacyChatListener implements Listener {
                 this.hover = hover;
             }
         }
-
         CompletableFuture<ItemDetails> itemFuture = new CompletableFuture<>();
         Bukkit.getScheduler().runTask(plugin, () -> {
             ItemStack item = player.getInventory().getItemInMainHand();
@@ -90,24 +89,6 @@ public class LegacyChatListener implements Listener {
                 itemFuture.complete(new ItemDetails(null, null));
             } else {
                 ItemStack clone = item.clone();
-                boolean shouldGlint = false;
-                if (clone.getType() == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
-                    shouldGlint = true;
-                } else {
-                    var meta = clone.getItemMeta();
-                    if (meta != null) {
-                        if (meta.hasEnchants()) {
-                            shouldGlint = true;
-                        } else if (meta instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta && ((org.bukkit.inventory.meta.EnchantmentStorageMeta) meta).hasStoredEnchants()) {
-                            shouldGlint = true;
-                        }
-                    }
-                }
-                if (shouldGlint) {
-                    try {
-                        clone.setData(io.papermc.paper.datacomponent.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, Boolean.TRUE);
-                    } catch (Throwable ignored) {}
-                }
                 itemFuture.complete(new ItemDetails(clone, clone.asHoverEvent()));
             }
         });
