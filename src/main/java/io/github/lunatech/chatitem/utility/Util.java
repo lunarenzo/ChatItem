@@ -80,24 +80,43 @@ public final class Util {
             return false;
         }
 
+        // 1. Query public Tag API from Bukkit/Paper (super fast, zero reflection)
         try {
-            // Retrieve NMS representation of the block via registry lookup
-            var key = net.minecraft.resources.ResourceLocation.parse(material.getKey().toString());
-            var nmsBlock = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key);
+            if (org.bukkit.Tag.DOORS.isTagged(material)
+                || org.bukkit.Tag.BEDS.isTagged(material)
+                || org.bukkit.Tag.SIGNS.isTagged(material)
+                || org.bukkit.Tag.ITEMS_BANNERS.isTagged(material)
+                || org.bukkit.Tag.SHULKER_BOXES.isTagged(material)) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // Ignore and fall back
+        }
+
+        // 2. Query NMS via reflection to dynamically identify blocks with animated/invisible inventory sprites
+        try {
+            Class<?> craftMagicNumbers = Class.forName("org.bukkit.craftbukkit.util.CraftMagicNumbers");
+            java.lang.reflect.Method getBlockMethod = craftMagicNumbers.getDeclaredMethod("getBlock", org.bukkit.Material.class);
+            Object nmsBlock = getBlockMethod.invoke(null, material);
             if (nmsBlock != null) {
-                var shape = nmsBlock.getRenderShape(nmsBlock.defaultBlockState());
-                // ENTITYBLOCK_ANIMATED = Chests, Shulker Boxes, Ender Chests, Bell, Conduit, etc.
-                // INVISIBLE = Air, Light, structures
-                if (shape == net.minecraft.world.level.block.RenderShape.ENTITYBLOCK_ANIMATED 
-                    || shape == net.minecraft.world.level.block.RenderShape.INVISIBLE) {
-                    return true;
+                java.lang.reflect.Method defaultBlockStateMethod = nmsBlock.getClass().getMethod("defaultBlockState");
+                Object defaultBlockState = defaultBlockStateMethod.invoke(nmsBlock);
+                java.lang.reflect.Method getRenderShapeMethod = nmsBlock.getClass().getMethod("getRenderShape", defaultBlockState.getClass());
+                Object renderShapeObj = getRenderShapeMethod.invoke(nmsBlock, defaultBlockState);
+                if (renderShapeObj != null) {
+                    String shapeName = ((Enum<?>) renderShapeObj).name();
+                    // ENTITYBLOCK_ANIMATED = Chests, Shulker Boxes, Ender Chests, Bell, Conduit, etc.
+                    // INVISIBLE = Air, Light, structures
+                    if ("ENTITYBLOCK_ANIMATED".equals(shapeName) || "INVISIBLE".equals(shapeName)) {
+                        return true;
+                    }
                 }
             }
         } catch (Throwable ignored) {
-            // Safe fallback if NMS mappings differ at runtime
+            // Safe fallback if reflection fails due to version mismatches
         }
 
-        // Suffix/name fallback for other blocks that render with custom 2D items
+        // 3. Suffix fallback for other specific blocks (chests, heads, utility blocks, campfire, heavy core, etc.)
         String name = material.name();
         return name.endsWith("CHEST")
             || name.endsWith("SHULKER_BOX")
