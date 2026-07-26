@@ -90,8 +90,7 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: |
-            ${{ github.workspace }}/api/build/libs/*.jar
-            ${{ github.workspace }}/paper/build/libs/*.jar
+            ${{ github.workspace }}/build/libs/*.jar
 
       # Upload the snapshot artifacts
       - name: Upload Snapshot Artifacts
@@ -99,8 +98,7 @@ jobs:
         with:
           name: Snapshot-${{ github.run_number }}
           path: |
-            ${{ github.workspace }}/api/build/libs/
-            ${{ github.workspace }}/paper/build/libs/
+            ${{ github.workspace }}/build/libs/
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: error
 
@@ -193,16 +191,14 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: |
-            ${{ github.workspace }}/api/build/libs/*.jar
-            ${{ github.workspace }}/paper/build/libs/*.jar
+            ${{ github.workspace }}/build/libs/*.jar
 
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: Release
           path: |
-            ${{ github.workspace }}/api/build/libs/
-            ${{ github.workspace }}/paper/build/libs/
+            ${{ github.workspace }}/build/libs/
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: error
 
