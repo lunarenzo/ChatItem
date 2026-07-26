@@ -129,7 +129,8 @@ public class AsyncChatListener implements Listener {
                     .replace("{atlas}", atlas)
                     .replace("{sprite}", sprite);
                 try {
-                    Component iconComponent = MiniMessage.miniMessage().deserialize(iconTag);
+                    Component iconComponent = MiniMessage.miniMessage().deserialize(iconTag)
+                        .color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
                     nameComponent = iconComponent.append(nameComponent);
                 } catch (Exception e) {
                     // Gracefully ignore if sprite is unsupported
@@ -141,10 +142,14 @@ public class AsyncChatListener implements Listener {
                 nameComponent = nameComponent.hoverEvent(hoverEvent);
             }
 
-            replacementComponent = MiniMessage.miniMessage().deserialize(
-                settings.itemFormat,
-                Placeholder.component("name", nameComponent)
-            );
+            if (settings.itemFormat.isEmpty()) {
+                replacementComponent = nameComponent;
+            } else {
+                replacementComponent = MiniMessage.miniMessage().deserialize(
+                    settings.itemFormat,
+                    Placeholder.component("name", nameComponent)
+                );
+            }
 
             // Double insurance: attach the hover event to the parent wrapper component as well
             if (hoverEvent != null) {
