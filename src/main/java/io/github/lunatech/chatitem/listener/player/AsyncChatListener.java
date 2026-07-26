@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
 
 public class AsyncChatListener implements Listener {
     private final ChatItem plugin;
-    private final Map<UUID, Long> cooldownMap = new ConcurrentHashMap<>();
     private final Pattern tagPattern = Pattern.compile("(?i)\\[(item|i)\\]");
 
     public AsyncChatListener(ChatItem plugin) {
@@ -57,8 +56,8 @@ public class AsyncChatListener implements Listener {
         // 3. Cooldown Check
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
-        if (cooldownMap.containsKey(uuid)) {
-            long lastUsed = cooldownMap.get(uuid);
+        if (plugin.getCooldownMap().containsKey(uuid)) {
+            long lastUsed = plugin.getCooldownMap().get(uuid);
             long diff = now - lastUsed;
             long cooldownMs = settings.cooldownSeconds * 1000L;
             if (diff < cooldownMs) {
@@ -180,12 +179,12 @@ public class AsyncChatListener implements Listener {
         });
 
         // 7. Update cooldown
-        cooldownMap.put(uuid, now);
+        plugin.getCooldownMap().put(uuid, now);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         // Prevent memory accumulation by cleaning entries when players disconnect
-        cooldownMap.remove(event.getPlayer().getUniqueId());
+        plugin.getCooldownMap().remove(event.getPlayer().getUniqueId());
     }
 }

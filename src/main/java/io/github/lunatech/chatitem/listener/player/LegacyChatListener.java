@@ -27,7 +27,6 @@ import java.util.regex.Pattern;
 
 public class LegacyChatListener implements Listener {
     private final ChatItem plugin;
-    private final Map<UUID, Long> cooldownMap = new ConcurrentHashMap<>();
     private final Pattern tagPattern = Pattern.compile("(?i)\\[(item|i)\\]");
 
     public LegacyChatListener(ChatItem plugin) {
@@ -55,8 +54,8 @@ public class LegacyChatListener implements Listener {
         // 3. Cooldown Check
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
-        if (cooldownMap.containsKey(uuid)) {
-            long lastUsed = cooldownMap.get(uuid);
+        if (plugin.getCooldownMap().containsKey(uuid)) {
+            long lastUsed = plugin.getCooldownMap().get(uuid);
             long diff = now - lastUsed;
             long cooldownMs = settings.cooldownSeconds * 1000L;
             if (diff < cooldownMs) {
@@ -180,7 +179,7 @@ public class LegacyChatListener implements Listener {
         Bukkit.getConsoleSender().sendMessage(finalComponent);
 
         // 9. Update cooldown
-        cooldownMap.put(uuid, now);
+        plugin.getCooldownMap().put(uuid, now);
     }
 
     private Component formatLegacyChat(String format, Component displayName, Component message) {
@@ -223,6 +222,6 @@ public class LegacyChatListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        cooldownMap.remove(event.getPlayer().getUniqueId());
+        plugin.getCooldownMap().remove(event.getPlayer().getUniqueId());
     }
 }

@@ -75,4 +75,10 @@ public class ChatItem extends JavaPlugin {
     public @NotNull HookManager getHookManager() {
         return hookManager;
     }
+
+    private final java.util.Map<java.util.UUID, Long> cooldownMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public @NotNull java.util.Map<java.util.UUID, Long> getCooldownMap() {
+        return cooldownMap;
+    }
 }
