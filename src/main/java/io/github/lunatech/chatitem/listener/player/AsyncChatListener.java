@@ -2,6 +2,7 @@ package io.github.lunatech.chatitem.listener.player;
 
 import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.config.PluginConfig;
+import io.papermc.paper.chat.ChatRenderer;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
@@ -149,6 +150,13 @@ public class AsyncChatListener implements Listener {
             .build();
 
         event.message(message.replaceText(replaceConfig));
+
+        // Wrap the chat renderer to ensure compatibility with formatting plugins that serialize/deserialize components (like EssentialsChat)
+        ChatRenderer originalRenderer = event.renderer();
+        event.renderer((source, sourceDisplayName, msg, viewer) -> {
+            Component rendered = originalRenderer.render(source, sourceDisplayName, msg, viewer);
+            return rendered.replaceText(replaceConfig);
+        });
 
         // 7. Update cooldown
         cooldownMap.put(uuid, now);
