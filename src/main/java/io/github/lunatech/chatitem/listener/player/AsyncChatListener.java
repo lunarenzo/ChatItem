@@ -1,0 +1,123 @@
+package io.github.lunatech.chatitem.listener.player;
+
+import io.github.lunatech.chatitem.ChatItem;
+import io.github.lunatech.chatitem.config.PluginConfig;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+
+public class AsyncChatListener implements Listener {
+    private final ChatItem plugin;
+    private final Map<UUID, Long> cooldownMap = new ConcurrentHashMap<>();
+    private final Pattern tagPattern = Pattern.compile("(?i)\\[(item|i)\\]");
+
+    public AsyncChatListener(ChatItem plugin) {
+        this.plugin = plugin;
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+        Component message = event.message();
+
+        // 1. Fast O(1) text check before doing full parser operations
+        String plainText = PlainTextComponentSerializer.plainText().serialize(message);
+        if (!plainText.toLowerCase().contains("[item]") && !plainText.toLowerCase().contains("[i]")) {
+            return;
+        }
+
+        PluginConfig config = plugin.getConfigHandler().getConfig();
+        PluginConfig.ItemShowcase settings = config.itemShowcase;
+
+        // 2. Permission Check
+        if (settings.permissionRequired && !player.hasPermission(settings.permissionNode)) {
+            return;
+        }
+
+        // 3. Cooldown Check
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        if (cooldownMap.containsKey(uuid)) {
+            long lastUsed = cooldownMap.get(uuid);
+            long diff = now - lastUsed;
+            long cooldownMs = settings.cooldownSeconds * 1000L;
+            if (diff < cooldownMs) {
+                long remainingSec = (cooldownMs - diff + 999L) / 1000L;
+                player.sendMessage(MiniMessage.miniMessage().deserialize(
+                    settings.cooldownMessage,
+                    Placeholder.parsed("cooldown", String.valueOf(remainingSec))
+                ));
+                return;
+            }
+        }
+
+        // 4. Fetch item in hand safely on the Main Tick Thread
+        CompletableFuture<ItemStack> itemFuture = new CompletableFuture<>();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            ItemStack item = player.getInventory().getItemInMainHand();
+            itemFuture.complete(item.clone());
+        });
+
+        ItemStack itemStack;
+        try {
+            itemStack = itemFuture.get(1, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            plugin.getComponentLogger().warn("Failed to fetch item in main hand for player " + player.getName(), e);
+            return;
+        }
+
+        // 5. Build the replacement Component
+        Component replacementComponent;
+        if (itemStack == null || itemStack.getType().isAir()) {
+            replacementComponent = MiniMessage.miniMessage().deserialize(settings.emptyHandFormat);
+        } else {
+            ItemMeta meta = itemStack.getItemMeta();
+            Component nameComponent;
+            if (meta != null && meta.hasDisplayName()) {
+                nameComponent = meta.displayName();
+            } else {
+                nameComponent = Component.translatable(itemStack.getType().translationKey());
+            }
+
+            replacementComponent = MiniMessage.miniMessage().deserialize(
+                settings.itemFormat,
+                Placeholder.component("name", nameComponent)
+            ).hoverEvent(itemStack.asHoverEvent());
+        }
+
+        // 6. Perform the replacement across the message
+        TextReplacementConfig replaceConfig = TextReplacementConfig.builder()
+            .match(tagPattern)
+            .replacement(replacementComponent)
+            .build();
+
+        event.message(message.replaceText(replaceConfig));
+
+        // 7. Update cooldown
+        cooldownMap.put(uuid, now);
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        // Prevent memory accumulation by cleaning entries when players disconnect
+        cooldownMap.remove(event.getPlayer().getUniqueId());
+    }
+}

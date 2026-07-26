@@ -1,6 +1,6 @@
 package io.github.lunatech.chatitem.utility;
 
-import io.github.lunatech.chatitem.AbstractChatItem;
+import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.config.ConfigHandler;
 import io.github.lunatech.chatitem.config.PluginConfig;
 import org.jetbrains.annotations.NotNull;
@@ -16,6 +16,6 @@ public final class Cfg {
      */
     @NotNull
     public static PluginConfig get() {
-        return AbstractChatItem.getInstance().getConfigHandler().getConfig();
+        return ChatItem.getInstance().getConfigHandler().getConfig();
     }
 }

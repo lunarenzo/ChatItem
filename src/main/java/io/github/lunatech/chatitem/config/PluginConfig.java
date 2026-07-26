@@ -49,6 +49,30 @@ public class PluginConfig implements VersionedConfig {
     @Comment("Language, specify the language file to use, for chatitem `en_US` which will load `/lang/en_US.json`")
     public String language = "en_US";
 
+    @Comment("Item Showcase Settings")
+    public ItemShowcase itemShowcase = new ItemShowcase();
+
+    @ConfigSerializable
+    public static class ItemShowcase {
+        @Comment("Cooldown in seconds between item showcases.")
+        public int cooldownSeconds = 3;
+
+        @Comment("Is a permission required to use [item] or [i]?")
+        public boolean permissionRequired = true;
+
+        @Comment("The permission node required if permissionRequired is true.")
+        public String permissionNode = "chatitem.showcase.item";
+
+        @Comment("The MiniMessage format for the item tag in chat. Use {name} for the item name.")
+        public String itemFormat = "<gray>[<aqua>{name}</aqua>]";
+
+        @Comment("The MiniMessage format when player is holding nothing in main hand.")
+        public String emptyHandFormat = "<gray><i>[Empty Hand]</i>";
+
+        @Comment("Message sent to the player when they are on cooldown.")
+        public String cooldownMessage = "<red>Please wait {cooldown}s before showcasing items again.";
+    }
+
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
     public Messages messages = new Messages();
 
