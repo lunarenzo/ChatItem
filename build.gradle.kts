@@ -17,6 +17,8 @@ repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+    maven("https://mvn-repo.arim.space/lesser-gpl3/")
+    maven("https://repo.opencollab.dev/maven-snapshots/")
 }
 
 dependencies {
