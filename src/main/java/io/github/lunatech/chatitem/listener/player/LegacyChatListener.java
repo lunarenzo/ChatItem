@@ -2,19 +2,18 @@ package io.github.lunatech.chatitem.listener.player;
 
 import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.config.PluginConfig;
-import io.papermc.paper.chat.ChatRenderer;
-import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -26,23 +25,22 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-public class AsyncChatListener implements Listener {
+public class LegacyChatListener implements Listener {
     private final ChatItem plugin;
     private final Map<UUID, Long> cooldownMap = new ConcurrentHashMap<>();
     private final Pattern tagPattern = Pattern.compile("(?i)\\[(item|i)\\]");
 
-    public AsyncChatListener(ChatItem plugin) {
+    public LegacyChatListener(ChatItem plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onChat(AsyncChatEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onLegacyChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
-        Component message = event.message();
+        String message = event.getMessage();
 
-        // 1. Fast O(1) text check before doing full parser operations
-        String plainText = PlainTextComponentSerializer.plainText().serialize(message);
-        if (!plainText.toLowerCase().contains("[item]") && !plainText.toLowerCase().contains("[i]")) {
+        // 1. Fast text check
+        if (!message.toLowerCase().contains("[item]") && !message.toLowerCase().contains("[i]")) {
             return;
         }
 
@@ -121,7 +119,6 @@ public class AsyncChatListener implements Listener {
                 nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
             }
 
-            // Double insurance: attach the hover event directly to the name component
             if (hoverEvent != null) {
                 nameComponent = nameComponent.hoverEvent(hoverEvent);
             }
@@ -131,34 +128,74 @@ public class AsyncChatListener implements Listener {
                 Placeholder.component("name", nameComponent)
             );
 
-            // Double insurance: attach the hover event to the parent wrapper component as well
             if (hoverEvent != null) {
                 replacementComponent = replacementComponent.hoverEvent(hoverEvent);
             }
         }
 
-        // 6. Perform the replacement across the message
+        // 6. Perform the replacement across the message Component
         TextReplacementConfig replaceConfig = TextReplacementConfig.builder()
             .match(tagPattern)
             .replacement(replacementComponent)
             .build();
 
-        event.message(message.replaceText(replaceConfig));
+        Component displayNameComponent = LegacyComponentSerializer.legacySection().deserialize(player.getDisplayName());
+        Component messageComponent = LegacyComponentSerializer.legacySection().deserialize(message).replaceText(replaceConfig);
 
-        // Wrap the chat renderer to ensure compatibility with formatting plugins that serialize/deserialize components (like EssentialsChat)
-        ChatRenderer originalRenderer = event.renderer();
-        event.renderer((source, sourceDisplayName, msg, viewer) -> {
-            Component rendered = originalRenderer.render(source, sourceDisplayName, msg, viewer);
-            return rendered.replaceText(replaceConfig);
-        });
+        // 7. Format the final output Component using Spigot format structure
+        Component finalComponent = formatLegacyChat(event.getFormat(), displayNameComponent, messageComponent);
 
-        // 7. Update cooldown
+        // 8. Cancel event and manually broadcast Component to all recipients
+        event.setCancelled(true);
+        for (Player recipient : event.getRecipients()) {
+            recipient.sendMessage(finalComponent);
+        }
+        Bukkit.getConsoleSender().sendMessage(finalComponent);
+
+        // 9. Update cooldown
         cooldownMap.put(uuid, now);
+    }
+
+    private Component formatLegacyChat(String format, Component displayName, Component message) {
+        int firstPlaceholder = format.indexOf("%1$s");
+        int secondPlaceholder = format.indexOf("%2$s");
+
+        if (firstPlaceholder == -1 || secondPlaceholder == -1) {
+            return Component.text()
+                .append(displayName)
+                .append(Component.text(": "))
+                .append(message)
+                .build();
+        }
+
+        Component result = Component.empty();
+        if (firstPlaceholder < secondPlaceholder) {
+            String part1 = format.substring(0, firstPlaceholder);
+            String part2 = format.substring(firstPlaceholder + 4, secondPlaceholder);
+            String part3 = format.substring(secondPlaceholder + 4);
+
+            return result
+                .append(LegacyComponentSerializer.legacySection().deserialize(part1))
+                .append(displayName)
+                .append(LegacyComponentSerializer.legacySection().deserialize(part2))
+                .append(message)
+                .append(LegacyComponentSerializer.legacySection().deserialize(part3));
+        } else {
+            String part1 = format.substring(0, secondPlaceholder);
+            String part2 = format.substring(secondPlaceholder + 4, firstPlaceholder);
+            String part3 = format.substring(firstPlaceholder + 4);
+
+            return result
+                .append(LegacyComponentSerializer.legacySection().deserialize(part1))
+                .append(message)
+                .append(LegacyComponentSerializer.legacySection().deserialize(part2))
+                .append(displayName)
+                .append(LegacyComponentSerializer.legacySection().deserialize(part3));
+        }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        // Prevent memory accumulation by cleaning entries when players disconnect
         cooldownMap.remove(event.getPlayer().getUniqueId());
     }
 }

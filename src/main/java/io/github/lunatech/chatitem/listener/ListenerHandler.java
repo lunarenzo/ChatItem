@@ -22,6 +22,7 @@ public class ListenerHandler implements Reloadable {
     @Override
     public void onEnable(ChatItem plugin) {
         listeners.add(new io.github.lunatech.chatitem.listener.player.AsyncChatListener(plugin));
+        listeners.add(new io.github.lunatech.chatitem.listener.player.LegacyChatListener(plugin));
         for (Listener listener : listeners) {
             Bukkit.getPluginManager().registerEvents(listener, plugin);
         }
