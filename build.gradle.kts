@@ -27,9 +27,8 @@ dependencies {
     compileOnly(libs.placeholderapi)
 
     implementation(libs.morepaperlib)
-    implementation(libs.bundles.configurate.core)
-    implementation(libs.bundles.configurate.yaml)
-    implementation(libs.colorparser.paper)
+    implementation(libs.configurate.core)
+    implementation(libs.configurate.yaml)
 }
 
 tasks {
@@ -44,10 +43,11 @@ tasks {
         val prefix = "io.github.lunatech.chatitem.libs"
         relocate("space.arim.morepaperlib", "$prefix.morepaperlib")
         relocate("org.spongepowered.configurate", "$prefix.configurate")
-        relocate("io.github.milkdrinkers.colorparser", "$prefix.colorparser")
-        relocate("io.github.milkdrinkers.threadutil", "$prefix.threadutil")
         relocate("org.snakeyaml", "$prefix.snakeyaml")
         relocate("io.leangen.geantyref", "$prefix.geantyref")
+        
+        // Exclude Google/Guava packages provided by the server to reduce size
+        exclude("com/google/**")
         
         mergeServiceFiles()
     }

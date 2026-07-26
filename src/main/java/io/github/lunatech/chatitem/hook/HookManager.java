@@ -3,7 +3,8 @@ package io.github.lunatech.chatitem.hook;
 import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.Reloadable;
 import io.github.lunatech.chatitem.utility.Logger;
-import io.github.milkdrinkers.colorparser.paper.ColorParser;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 
@@ -26,9 +27,10 @@ public class HookManager implements Reloadable {
             try {
                 if (hook.getPluginName() != null && Bukkit.getPluginManager().getPlugin(hook.getPluginName()) == null) {
                     Logger.get().warn(
-                        ColorParser.of("<yellow><plugin> is not installed on this server. <plugin> support has been disabled.")
-                            .with("plugin", hook.getPluginName())
-                            .build()
+                        MiniMessage.miniMessage().deserialize(
+                            "<yellow><plugin> is not installed on this server. <plugin> support has been disabled.",
+                            Placeholder.parsed("plugin", hook.getPluginName())
+                        )
                     );
 
                     if (!hook.isOptional())
@@ -44,17 +46,19 @@ public class HookManager implements Reloadable {
 
                 if (hook.getPluginName() != null) {
                     Logger.get().info(
-                        ColorParser.of("<green><plugin> has been found on this server. <plugin> support enabled.")
-                            .with("plugin", hook.getPluginName())
-                            .build()
+                        MiniMessage.miniMessage().deserialize(
+                            "<green><plugin> has been found on this server. <plugin> support enabled.",
+                            Placeholder.parsed("plugin", hook.getPluginName())
+                        )
                     );
                 }
             } catch (Exception e) {
                 Logger.get().warn(
-                    ColorParser.of("<yellow><hook> failed to load: <exception>")
-                        .with("hook", hook.getHookClass().getName())
-                        .with("exception", e.getMessage())
-                        .build()
+                    MiniMessage.miniMessage().deserialize(
+                        "<yellow><hook> failed to load: <exception>",
+                        Placeholder.parsed("hook", hook.getHookClass().getName()),
+                        Placeholder.parsed("exception", e.getMessage() != null ? e.getMessage() : "unknown")
+                    )
                 );
             }
         }
