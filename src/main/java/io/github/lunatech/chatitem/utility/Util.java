@@ -90,32 +90,41 @@ public final class Util {
         } catch (Throwable ignored) {}
 
         // 1. Try modern Data Component API (Minecraft 1.20.5+)
+        String rarityName = null;
         try {
-            var rarity = itemStack.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
+            Object rarity = itemStack.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
+            if (rarity == null) {
+                rarity = itemStack.getType().getDefaultData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
+            }
             if (rarity != null) {
-                if (isEnchanted && rarity == io.papermc.paper.inventory.ItemRarity.COMMON) {
-                    return net.kyori.adventure.text.format.NamedTextColor.AQUA;
-                }
-                return switch (rarity) {
-                    case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
-                    case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
-                    case RARE -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
-                    case EPIC -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
-                };
+                rarityName = ((Enum<?>) rarity).name();
             }
         } catch (Throwable ignored) {
             // Fallback if class/method doesn't exist
         }
 
+        if (rarityName != null) {
+            if (isEnchanted && "COMMON".equals(rarityName)) {
+                return net.kyori.adventure.text.format.NamedTextColor.AQUA;
+            }
+            return switch (rarityName) {
+                case "COMMON" -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+                case "UNCOMMON" -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                case "RARE" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                case "EPIC" -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
+                default -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+            };
+        }
+
         // 2. Try Material Rarity API
         try {
-            var rarity = itemStack.getType().getItemRarity();
-            if (rarity != null) {
-                String rarityName = rarity.name();
-                if (isEnchanted && "COMMON".equals(rarityName)) {
+            var legacyRarity = itemStack.getType().getItemRarity();
+            if (legacyRarity != null) {
+                String legacyRarityName = legacyRarity.name();
+                if (isEnchanted && "COMMON".equals(legacyRarityName)) {
                     return net.kyori.adventure.text.format.NamedTextColor.AQUA;
                 }
-                return switch (rarityName) {
+                return switch (legacyRarityName) {
                     case "COMMON" -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
                     case "UNCOMMON" -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
                     case "RARE" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
