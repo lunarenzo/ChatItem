@@ -67,5 +67,9 @@ paper {
         register("PlaceholderAPI") {
             required = false
         }
+        register("Essentials") {
+            required = false
+            load = de.eldoria.pluginyml.paper.ServerDependency.Load.BEFORE
+        }
     }
 }
