@@ -91,7 +91,26 @@ public class AsyncChatListener implements Listener {
             if (item == null || item.getType().isAir()) {
                 itemFuture.complete(new ItemDetails(null, null));
             } else {
-                itemFuture.complete(new ItemDetails(item.clone(), item.asHoverEvent()));
+                ItemStack clone = item.clone();
+                boolean shouldGlint = false;
+                if (clone.getType() == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
+                    shouldGlint = true;
+                } else {
+                    var meta = clone.getItemMeta();
+                    if (meta != null) {
+                        if (meta.hasEnchants()) {
+                            shouldGlint = true;
+                        } else if (meta instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta && ((org.bukkit.inventory.meta.EnchantmentStorageMeta) meta).hasStoredEnchants()) {
+                            shouldGlint = true;
+                        }
+                    }
+                }
+                if (shouldGlint) {
+                    try {
+                        clone.setData(io.papermc.paper.datacomponent.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, Boolean.TRUE);
+                    } catch (Throwable ignored) {}
+                }
+                itemFuture.complete(new ItemDetails(clone, clone.asHoverEvent()));
             }
         });
 
@@ -134,6 +153,9 @@ public class AsyncChatListener implements Listener {
 
             if (settings.showIcon) {
                 String materialName = itemStack.getType().name().toLowerCase();
+                if (materialName.equals("enchanted_golden_apple")) {
+                    materialName = "golden_apple";
+                }
                 String atlas = itemStack.getType().isBlock() ? "minecraft:blocks" : "minecraft:items";
                 String sprite = (itemStack.getType().isBlock() ? "block/" : "item/") + materialName;
                 String iconTag = settings.iconFormat
