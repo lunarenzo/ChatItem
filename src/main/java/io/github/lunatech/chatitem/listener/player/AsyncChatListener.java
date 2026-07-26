@@ -70,19 +70,36 @@ public class AsyncChatListener implements Listener {
         }
 
         // 4. Fetch item in hand safely on the Main Tick Thread
-        CompletableFuture<ItemStack> itemFuture = new CompletableFuture<>();
+        class ItemDetails {
+            final ItemStack stack;
+            final net.kyori.adventure.text.event.HoverEvent<net.kyori.adventure.text.event.HoverEvent.ShowItem> hover;
+
+            ItemDetails(ItemStack stack, net.kyori.adventure.text.event.HoverEvent<net.kyori.adventure.text.event.HoverEvent.ShowItem> hover) {
+                this.stack = stack;
+                this.hover = hover;
+            }
+        }
+
+        CompletableFuture<ItemDetails> itemFuture = new CompletableFuture<>();
         Bukkit.getScheduler().runTask(plugin, () -> {
             ItemStack item = player.getInventory().getItemInMainHand();
-            itemFuture.complete(item.clone());
+            if (item == null || item.getType().isAir()) {
+                itemFuture.complete(new ItemDetails(null, null));
+            } else {
+                itemFuture.complete(new ItemDetails(item.clone(), item.asHoverEvent()));
+            }
         });
 
-        ItemStack itemStack;
+        ItemDetails details;
         try {
-            itemStack = itemFuture.get(1, TimeUnit.SECONDS);
+            details = itemFuture.get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
             plugin.getComponentLogger().warn("Failed to fetch item in main hand for player " + player.getName(), e);
             return;
         }
+
+        ItemStack itemStack = details.stack;
+        net.kyori.adventure.text.event.HoverEvent<net.kyori.adventure.text.event.HoverEvent.ShowItem> hoverEvent = details.hover;
 
         // 5. Build the replacement Component
         Component replacementComponent;
@@ -102,10 +119,20 @@ public class AsyncChatListener implements Listener {
                 nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
             }
 
+            // Double insurance: attach the hover event directly to the name component
+            if (hoverEvent != null) {
+                nameComponent = nameComponent.hoverEvent(hoverEvent);
+            }
+
             replacementComponent = MiniMessage.miniMessage().deserialize(
                 settings.itemFormat,
                 Placeholder.component("name", nameComponent)
-            ).hoverEvent(itemStack.asHoverEvent());
+            );
+
+            // Double insurance: attach the hover event to the parent wrapper component as well
+            if (hoverEvent != null) {
+                replacementComponent = replacementComponent.hoverEvent(hoverEvent);
+            }
         }
 
         // 6. Perform the replacement across the message
