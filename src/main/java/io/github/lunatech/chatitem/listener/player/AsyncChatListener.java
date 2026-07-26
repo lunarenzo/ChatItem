@@ -138,8 +138,9 @@ public class AsyncChatListener implements Listener {
                 if (materialName.equals("enchanted_golden_apple")) {
                     materialName = "golden_apple";
                 }
-                String atlas = itemStack.getType().isBlock() ? "minecraft:blocks" : "minecraft:items";
-                String sprite = (itemStack.getType().isBlock() ? "block/" : "item/") + materialName;
+                boolean isBlockSprite = itemStack.getType().isBlock() && !io.github.lunatech.chatitem.utility.Util.isItemSpriteBlock(itemStack.getType());
+                String atlas = isBlockSprite ? "minecraft:blocks" : "minecraft:items";
+                String sprite = (isBlockSprite ? "block/" : "item/") + materialName;
                 String iconTag = settings.iconFormat
                     .replace("{atlas}", atlas)
                     .replace("{sprite}", sprite);

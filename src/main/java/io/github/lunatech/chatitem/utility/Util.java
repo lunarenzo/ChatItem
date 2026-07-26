@@ -68,4 +68,28 @@ public final class Util {
         }
         return sb.toString();
     }
+
+    /**
+     * Checks if a material is a block but has its 2D inventory icon sprite inside minecraft:items atlas.
+     *
+     * @param material the material type
+     * @return true if the block uses a 2D item icon sprite in the items atlas
+     */
+    public static boolean isItemSpriteBlock(org.bukkit.Material material) {
+        String name = material.name();
+        return name.endsWith("CHEST")
+            || name.endsWith("SHULKER_BOX")
+            || name.endsWith("BANNER")
+            || name.endsWith("SIGN")
+            || name.endsWith("HEAD")
+            || name.endsWith("SKULL")
+            || name.endsWith("DOOR")
+            || name.endsWith("BED")
+            || name.endsWith("CAMPFIRE")
+            || name.equals("HEAVY_CORE")
+            || name.equals("BREWING_STAND")
+            || name.equals("CAULDRON")
+            || name.equals("BELL")
+            || name.equals("FLOWER_POT");
+    }
 }
