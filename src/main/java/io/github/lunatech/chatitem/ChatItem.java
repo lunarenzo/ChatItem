@@ -81,4 +81,10 @@ public class ChatItem extends JavaPlugin {
     public @NotNull java.util.Map<java.util.UUID, Long> getCooldownMap() {
         return cooldownMap;
     }
+
+    private final java.util.Map<java.util.UUID, Long> lastWarnedMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public @NotNull java.util.Map<java.util.UUID, Long> getLastWarnedMap() {
+        return lastWarnedMap;
+    }
 }

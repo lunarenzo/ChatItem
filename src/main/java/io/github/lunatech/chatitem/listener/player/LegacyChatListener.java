@@ -59,11 +59,15 @@ public class LegacyChatListener implements Listener {
             long diff = now - lastUsed;
             long cooldownMs = settings.cooldownSeconds * 1000L;
             if (diff < cooldownMs) {
-                long remainingSec = (cooldownMs - diff + 999L) / 1000L;
-                player.sendMessage(MiniMessage.miniMessage().deserialize(
-                    settings.cooldownMessage,
-                    Placeholder.parsed("cooldown", String.valueOf(remainingSec))
-                ));
+                long lastWarned = plugin.getLastWarnedMap().getOrDefault(uuid, 0L);
+                if (now - lastWarned >= 500L) {
+                    plugin.getLastWarnedMap().put(uuid, now);
+                    long remainingSec = (cooldownMs - diff + 999L) / 1000L;
+                    player.sendMessage(MiniMessage.miniMessage().deserialize(
+                        settings.cooldownMessage,
+                        Placeholder.parsed("cooldown", String.valueOf(remainingSec))
+                    ));
+                }
                 return;
             }
         }
@@ -114,11 +118,16 @@ public class LegacyChatListener implements Listener {
                 nameComponent = Component.translatable(itemStack.getType().translationKey(), fallbackName);
             }
 
-            Component rawNameComponent = itemStack.displayName();
-
             if (itemStack.getAmount() > 1) {
                 nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
-                rawNameComponent = rawNameComponent.append(Component.text(" x" + itemStack.getAmount()));
+            }
+
+            Component rawNameComponent = nameComponent;
+            net.kyori.adventure.text.format.TextColor rarityColor = itemStack.displayName().color();
+            if (rarityColor != null) {
+                rawNameComponent = rawNameComponent.color(rarityColor);
+            } else {
+                rawNameComponent = rawNameComponent.color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
             }
 
             if (settings.showIcon) {
@@ -222,5 +231,6 @@ public class LegacyChatListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         plugin.getCooldownMap().remove(event.getPlayer().getUniqueId());
+        plugin.getLastWarnedMap().remove(event.getPlayer().getUniqueId());
     }
 }
