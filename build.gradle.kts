@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.morepaperlib)
     implementation(libs.configurate.core)
     implementation(libs.configurate.yaml)
+    implementation(libs.configurate.interfaces.core)
 }
 
 tasks {
