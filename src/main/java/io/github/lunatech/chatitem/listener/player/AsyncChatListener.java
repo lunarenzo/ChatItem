@@ -5,6 +5,7 @@ import io.github.lunatech.chatitem.config.PluginConfig;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -72,9 +73,9 @@ public class AsyncChatListener implements Listener {
         // 4. Fetch item in hand safely on the Main Tick Thread
         class ItemDetails {
             final ItemStack stack;
-            final net.kyori.adventure.text.event.HoverEvent<net.kyori.adventure.text.event.HoverEvent.ShowItem> hover;
+            final HoverEvent<HoverEvent.ShowItem> hover;
 
-            ItemDetails(ItemStack stack, net.kyori.adventure.text.event.HoverEvent<net.kyori.adventure.text.event.HoverEvent.ShowItem> hover) {
+            ItemDetails(ItemStack stack, HoverEvent<HoverEvent.ShowItem> hover) {
                 this.stack = stack;
                 this.hover = hover;
             }
@@ -99,7 +100,7 @@ public class AsyncChatListener implements Listener {
         }
 
         ItemStack itemStack = details.stack;
-        net.kyori.adventure.text.event.HoverEvent<net.kyori.adventure.text.event.HoverEvent.ShowItem> hoverEvent = details.hover;
+        HoverEvent<HoverEvent.ShowItem> hoverEvent = details.hover;
 
         // 5. Build the replacement Component
         Component replacementComponent;
@@ -132,6 +133,12 @@ public class AsyncChatListener implements Listener {
             // Double insurance: attach the hover event to the parent wrapper component as well
             if (hoverEvent != null) {
                 replacementComponent = replacementComponent.hoverEvent(hoverEvent);
+                
+                // Debug test message sent directly to player
+                player.sendMessage(
+                    Component.text("[ChatItem Debug] Hover over this message to test DIRECT item hover!")
+                        .hoverEvent(hoverEvent)
+                );
             }
         }
 
