@@ -76,6 +76,28 @@ public final class Util {
      * @return true if the block uses a 2D item icon sprite in the items atlas
      */
     public static boolean isItemSpriteBlock(org.bukkit.Material material) {
+        if (!material.isBlock()) {
+            return false;
+        }
+
+        try {
+            // Retrieve NMS representation of the block via registry lookup
+            var key = net.minecraft.resources.ResourceLocation.parse(material.getKey().toString());
+            var nmsBlock = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key);
+            if (nmsBlock != null) {
+                var shape = nmsBlock.getRenderShape(nmsBlock.defaultBlockState());
+                // ENTITYBLOCK_ANIMATED = Chests, Shulker Boxes, Ender Chests, Bell, Conduit, etc.
+                // INVISIBLE = Air, Light, structures
+                if (shape == net.minecraft.world.level.block.RenderShape.ENTITYBLOCK_ANIMATED 
+                    || shape == net.minecraft.world.level.block.RenderShape.INVISIBLE) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            // Safe fallback if NMS mappings differ at runtime
+        }
+
+        // Suffix/name fallback for other blocks that render with custom 2D items
         String name = material.name();
         return name.endsWith("CHEST")
             || name.endsWith("SHULKER_BOX")
@@ -86,10 +108,10 @@ public final class Util {
             || name.endsWith("DOOR")
             || name.endsWith("BED")
             || name.endsWith("CAMPFIRE")
+            || name.endsWith("POT")
             || name.equals("HEAVY_CORE")
             || name.equals("BREWING_STAND")
             || name.equals("CAULDRON")
-            || name.equals("BELL")
-            || name.equals("FLOWER_POT");
+            || name.equals("BELL");
     }
 }
