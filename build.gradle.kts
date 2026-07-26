@@ -1,91 +1,68 @@
-import versioning.VersioningPlugin
-
 plugins {
-    `java-library`
-    projectextensions
-    versioning
-    idea
-    eclipse
+    java
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.run.paper)
+    alias(libs.plugins.plugin.yml.paper)
 }
 
+group = "io.github.lunatech"
+version = "1.0.0-SNAPSHOT"
+description = "A lightweight inventory and item showcase plugin."
+
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21)) // Configure the java toolchain. This allows gradle to auto-provision JDK 21 on systems that only have JDK 8 installed for chatitem.
+    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+}
+
+repositories {
+    mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+}
+
+dependencies {
+    compileOnly(libs.paper.api)
+    compileOnly(libs.annotations)
+    compileOnly(libs.placeholderapi)
+
+    implementation(libs.morepaperlib)
+    implementation(libs.bundles.configurate.core)
+    implementation(libs.bundles.configurate.yaml)
+    implementation(libs.colorparser.paper)
 }
 
 tasks {
-    jar {
-        enabled = false
+    build {
+        dependsOn(shadowJar)
+    }
+
+    shadowJar {
+        archiveClassifier.set("")
+
+        // Relocate libraries to avoid conflicts
+        val prefix = "io.github.lunatech.chatitem.libs"
+        relocate("space.arim.morepaperlib", "$prefix.morepaperlib")
+        relocate("org.spongepowered.configurate", "$prefix.configurate")
+        relocate("io.github.milkdrinkers.colorparser", "$prefix.colorparser")
+        relocate("io.github.milkdrinkers.threadutil", "$prefix.threadutil")
+        relocate("org.snakeyaml", "$prefix.snakeyaml")
+        relocate("io.leangen.geantyref", "$prefix.geantyref")
+        
+        mergeServiceFiles()
     }
 }
 
-subprojects {
-    apply<JavaLibraryPlugin>()
-    apply<ProjectExtensionsPlugin>()
-    apply<VersioningPlugin>()
+paper {
+    main = "io.github.lunatech.chatitem.ChatItem"
+    name = "ChatItem"
+    version = "${project.version}"
+    description = "${project.description}"
+    authors = listOf("lunarenzo")
+    apiVersion = "1.21"
+    foliaSupported = true
 
-    project.version = rootProject.version
-    project.description = rootProject.description
-
-    base.archivesName.set("${rootProject.name}-${project.name}")
-
-    java {
-        toolchain.languageVersion.set(JavaLanguageVersion.of(21)) // Configure the java toolchain. This allows gradle to auto-provision JDK 21 on systems that only have JDK 8 installed for chatitem.
-        withJavadocJar() // Enable javadoc jar generation
-        withSourcesJar() // Enable sources jar generation
-    }
-
-    repositories {
-        mavenCentral()
-
-        maven("https://repo.papermc.io/repository/maven-public/")
-        maven("https://mvn-repo.arim.space/lesser-gpl3/")
-        maven("https://repo.extendedclip.com/content/repositories/placeholderapi/") // PlaceholderAPI
-        maven("https://repo.codemc.org/repository/maven-public/") {
-            content {
-                includeGroup("com.github.retrooper") // PacketEvents
-            }
-        }
-        maven("https://jitpack.io/") {
-            content {
-                includeGroup("com.github.MilkBowl") // VaultAPI
-            }
-        }
-
-        maven("https://repo.opencollab.dev/maven-snapshots/")
-    }
-
-    dependencies {
-        compileOnly(rootProject.libs.annotations)
-
-        compileOnly(rootProject.libs.paper.api)
-        compileOnly(rootProject.libs.vault)
-    }
-
-    tasks {
-        compileJava {
-            options.release.set(21)
-            options.encoding = Charsets.UTF_8.name()
-            options.compilerArgs.addAll(arrayListOf("-Xlint:all", "-Xlint:-processing", "-Xdiags:verbose"))
-        }
-
-        javadoc {
-            isFailOnError = false
-            val options = options as StandardJavadocDocletOptions
-            options.encoding = Charsets.UTF_8.name()
-            options.overview = "src/main/javadoc/overview.html"
-            options.windowTitle = "${rootProject.name} Javadoc"
-            options.tags("apiNote:a:API Note:", "implNote:a:Implementation Note:", "implSpec:a:Implementation Requirements:")
-            options.addStringOption("Xdoclint:none", "-quiet")
-            options.use()
-        }
-
-        processResources {
-            filteringCharset = Charsets.UTF_8.name()
-        }
-
-        test {
-            useJUnitPlatform()
-            failFast = false
+    serverDependencies {
+        register("PlaceholderAPI") {
+            required = false
         }
     }
 }

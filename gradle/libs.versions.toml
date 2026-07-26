@@ -1,9 +1,6 @@
 [versions]
 paper-api = "1.21.11-R0.1-SNAPSHOT"
 paper-run = "1.21.11"
-commandapi = "11.2.0"
-flyway = "12.11.0"
-jooq = "3.21.6"
 configurate = "4.2.0-GeyserMC-SNAPSHOT"
 colorparser = "4.2.0"
 threadutil = "1.4.0"
@@ -15,9 +12,6 @@ paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper-api" }
 morepaperlib = "space.arim.morepaperlib:morepaperlib:0.5.3"
 
 # API dependencies
-javasemver = "io.github.milkdrinkers:javasemver:1.0.2"
-versionwatch = "io.github.milkdrinkers:versionwatch:1.1.0"
-wordweaver = "io.github.milkdrinkers:wordweaver:0.0.7"
 yaml = { module = "org.yaml:snakeyaml", version = "2.6" }
 configurate-geantyref = "io.leangen.geantyref:geantyref:2.0.1"
 configurate-interfaces-ap = { module = "org.spongepowered:configurate-extra-interface-ap", version.ref = "configurate" }
@@ -28,60 +22,15 @@ colorparser-common = { module = "io.github.milkdrinkers:colorparser-common", ver
 colorparser-paper = { module = "io.github.milkdrinkers:colorparser-paper", version.ref = "colorparser" }
 threadutil-common = { module = "io.github.milkdrinkers:threadutil-common", version.ref = "threadutil" }
 threadutil-bukkit = { module = "io.github.milkdrinkers:threadutil-bukkit", version.ref = "threadutil" }
-commandapi-core = { module = "dev.jorel:commandapi-core", version.ref = "commandapi" }
-commandapi-shade-paper = { module = "dev.jorel:commandapi-paper-shade", version.ref = "commandapi" }
-triumph-gui = "dev.triumphteam:triumph-gui-paper:3.1.13"
 
 # Plugin dependencies
-bstats = "org.bstats:bstats-bukkit:3.2.1"
-vault = "com.github.MilkBowl:VaultAPI:1.7.1"
-packetevents = "com.github.retrooper:packetevents-spigot:2.13.0"
 placeholderapi = "me.clip:placeholderapi:2.12.3"
-
-# Database dependencies
-hikaricp = "com.zaxxer:HikariCP:7.1.0"
-flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
-flyway-mysql = { module = "org.flywaydb:flyway-mysql", version.ref = "flyway" }
-jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
-jakarta = "jakarta.xml.bind:jakarta.xml.bind-api:4.0.5" # Compiler bug, see: https://github.com/jOOQ/jOOQ/issues/14865#issuecomment-2077182512
-
-# JDBC drivers
-h2 = "com.h2database:h2:2.4.240"
-sqlite = "org.xerial:sqlite-jdbc:3.53.2.0"
-mysql = "com.mysql:mysql-connector-j:9.7.0"
-mariadb = "org.mariadb.jdbc:mariadb-java-client:3.5.9"
-
-# Messaging drivers
-jedis = "redis.clients:jedis:7.5.3"
-nats = "io.nats:jnats:2.26.0"
-rabbitmq = "com.rabbitmq:amqp-client:5.34.0"
-
-# Testing
-junit-bom = "org.junit:junit-bom:6.1.2"
-junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
-junit-platform = { module = "org.junit.platform:junit-platform-launcher" }
-slf4j = "org.slf4j:slf4j-simple:2.0.18"
-testcontainers-bom = "org.testcontainers:testcontainers-bom:2.0.5"
-testcontainers-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
-testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql" }
-testcontainers-mariadb = { module = "org.testcontainers:testcontainers-mariadb" }
-testcontainers-redis = { module = "com.redis:testcontainers-redis", version = "2.2.4" }
-testcontainers-rabbitmq = { module = "org.testcontainers:testcontainers-rabbitmq" }
 
 [bundles]
 configurate-core = ["configurate-core", "configurate-interfaces-core", "configurate-interfaces-ap", "configurate-geantyref"]
 configurate-yaml = ["configurate-yaml", "yaml"]
-flyway = ["flyway-core", "flyway-mysql"]
-jdbcdrivers = ["h2", "sqlite", "mysql", "mariadb"]
-messagingclients = ["jedis", "nats", "rabbitmq"]
-junit = ["junit-jupiter", "junit-platform"]
-testcontainers = ["testcontainers-jupiter", "testcontainers-mysql", "testcontainers-mariadb", "testcontainers-redis", "testcontainers-rabbitmq"]
 
 [plugins]
 shadow = "com.gradleup.shadow:9.6.0"
 run-paper = "xyz.jpenilla.run-paper:3.0.2"
-plugin-yml-bukkit = "de.eldoria.plugin-yml.bukkit:0.9.0"
 plugin-yml-paper = "de.eldoria.plugin-yml.paper:0.9.0"
-paperweight = "io.papermc.paperweight.userdev:1.7.7"
-jooq = { id = "org.jooq.jooq-codegen-gradle", version.ref = "jooq" }
-publisher = "com.vanniktech.maven.publish:0.37.0"
