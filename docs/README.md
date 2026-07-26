@@ -57,9 +57,9 @@ configuration and repository maintenance.
 
 **Versioning Strategy**:
 
-- Stable releases as: `ExamplePlugin-1.0.0.jar`
-- Testing releases as: `ExamplePlugin-1.0.0-RC-X.jar`
-- Development releases as: `ExamplePlugin-1.0.0-SNAPSHOT-X.jar`
+- Stable releases as: `ChatItemPlugin-1.0.0.jar`
+- Testing releases as: `ChatItemPlugin-1.0.0-RC-X.jar`
+- Development releases as: `ChatItemPlugin-1.0.0-SNAPSHOT-X.jar`
 
 | GitHub Event               | Version Format        | CI Action             | GitHub Release Draft? |
 |----------------------------|-----------------------|-----------------------|-----------------------|
@@ -119,12 +119,12 @@ configuration and repository maintenance.
 ## Setup
 
 1. #### Change [.github/CODEOWNERS](./.github/CODEOWNERS)
-   Replace `GITHUB_USERNAME` with your GitHub username.
+   Replace `lunatech` with your GitHub username.
     ```CODEOWNERS
     *       @darksaid98 @SOME_OTHER_USER
     ```
 2. #### Change [.github/FUNDING.yml](./.github/FUNDING.yml)
-   Replace `GITHUB_USERNAME` with your GitHub
+   Replace `lunatech` with your GitHub
    username. [You can configure your sponsor button by editing the FUNDING.yml](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository).
 
    ```FUNDING.yml
@@ -135,15 +135,15 @@ configuration and repository maintenance.
    If you choose to adopt the Code of Conduct in this template, please replace `GITHUB_CONTACT_EMAIL` at line 63 with
    your preferred method of contact. Otherwise replace or remove it.
 4. #### Change [Project Name](./settings.gradle.kts)
-   Replace all occurances of `ExamplePlugin` with your new plugin name. Don't forget to rename the main
-   class [ExamplePlugin.java](./src/main/java/com/github/ExampleUser/ExamplePlugin/ExamplePlugin.java) to the same
+   Replace all occurances of `ChatItemPlugin` with your new plugin name. Don't forget to rename the main
+   class [ChatItemPlugin.java](./src/main/java/com/github/Lunatech/ChatItemPlugin/ChatItemPlugin.java) to the same
    value.
    ```kotlin
    rootProject.name = "MyNamePlugin"
    ```
 5. #### Change [build.gradle.kts](./build.gradle.kts)
     1. ##### Change Plugin Info
-       > The final package path for your plugin will end up being something like `io.github.darksaid98.exampleplugin`. It's made up of these components `io.github.<USERNAME>.<PLUGINNAME>` where `<USERNAME>` is your github name in lowercase, and `<PLUGINNAME>` is added by `rootProject.name` lowercased.
+       > The final package path for your plugin will end up being something like `io.github.darksaid98.chatitemplugin`. It's made up of these components `io.github.<USERNAME>.<PLUGINNAME>` where `<USERNAME>` is your github name in lowercase, and `<PLUGINNAME>` is added by `rootProject.name` lowercased.
        
        Don't forget to change package locations in `src/main/java/` when changing the group.
        ```kotlin
@@ -157,7 +157,7 @@ configuration and repository maintenance.
        
        Update the authors list and any other required settings.
        ```kotlin
-       authors = listOf("GITHUB_USERNAME") // Replace with your username
+       authors = listOf("lunatech") // Replace with your username
        contributors = listOf()
        apiVersion = "1.19"
  
