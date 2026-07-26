@@ -84,7 +84,7 @@ public final class Util {
         try {
             var meta = itemStack.getItemMeta();
             if (meta != null) {
-                var rarity = meta.get(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
+                var rarity = meta.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
                 if (rarity != null) {
                     return switch (rarity) {
                         case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
