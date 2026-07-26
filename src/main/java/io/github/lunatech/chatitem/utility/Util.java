@@ -80,10 +80,22 @@ public final class Util {
             return net.kyori.adventure.text.format.NamedTextColor.WHITE;
         }
 
+        // Check if the item is actively enchanted (excluding stored enchants on Enchanted Books)
+        boolean isEnchanted = false;
+        try {
+            var meta = itemStack.getItemMeta();
+            if (meta != null && meta.hasEnchants()) {
+                isEnchanted = true;
+            }
+        } catch (Throwable ignored) {}
+
         // 1. Try modern Data Component API (Minecraft 1.20.5+)
         try {
             var rarity = itemStack.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
             if (rarity != null) {
+                if (isEnchanted && rarity == io.papermc.paper.inventory.ItemRarity.COMMON) {
+                    return net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                }
                 return switch (rarity) {
                     case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
                     case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
@@ -99,14 +111,23 @@ public final class Util {
         try {
             var rarity = itemStack.getType().getItemRarity();
             if (rarity != null) {
-                return switch (rarity) {
-                    case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
-                    case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
-                    case RARE -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
-                    case EPIC -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
+                String rarityName = rarity.name();
+                if (isEnchanted && "COMMON".equals(rarityName)) {
+                    return net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                }
+                return switch (rarityName) {
+                    case "COMMON" -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+                    case "UNCOMMON" -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                    case "RARE" -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                    case "EPIC" -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
+                    default -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
                 };
             }
         } catch (Throwable ignored) {
+        }
+
+        if (isEnchanted) {
+            return net.kyori.adventure.text.format.NamedTextColor.AQUA;
         }
 
         return net.kyori.adventure.text.format.NamedTextColor.WHITE;
