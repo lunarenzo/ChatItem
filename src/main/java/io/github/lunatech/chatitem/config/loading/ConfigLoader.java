@@ -2,9 +2,6 @@ package io.github.lunatech.chatitem.config.loading;
 
 import io.github.lunatech.chatitem.config.VersionedConfig;
 import io.github.lunatech.chatitem.config.exception.ConfigValidationException;
-import io.github.lunatech.chatitem.config.typeserializer.BigDecimalSerializer;
-import io.github.lunatech.chatitem.config.typeserializer.DurationSerializer;
-import io.github.lunatech.chatitem.config.typeserializer.LowercaseEnumSerializer;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,9 +17,7 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -320,10 +315,7 @@ public class ConfigLoader {
 
     @NotNull
     private YamlConfigurationLoader createLoader(@NotNull File file) {
-        final TypeSerializerCollection.Builder serializerBuilder = TypeSerializerCollection.defaults().childBuilder()
-            .register(LowercaseEnumSerializer.INSTANCE)
-            .registerExact(BigDecimal.class, BigDecimalSerializer.INSTANCE)
-            .registerExact(Duration.class, DurationSerializer.INSTANCE);
+        final TypeSerializerCollection.Builder serializerBuilder = TypeSerializerCollection.defaults().childBuilder();
 
         for (Consumer<TypeSerializerCollection.Builder> extra : extraSerializers) {
             extra.accept(serializerBuilder);
