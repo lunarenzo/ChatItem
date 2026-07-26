@@ -84,13 +84,12 @@ public final class Util {
         try {
             var rarity = itemStack.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
             if (rarity != null) {
-                    return switch (rarity) {
-                        case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
-                        case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
-                        case RARE -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
-                        case EPIC -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
-                    };
-                }
+                return switch (rarity) {
+                    case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+                    case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                    case RARE -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                    case EPIC -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
+                };
             }
         } catch (Throwable ignored) {
             // Fallback if class/method doesn't exist
