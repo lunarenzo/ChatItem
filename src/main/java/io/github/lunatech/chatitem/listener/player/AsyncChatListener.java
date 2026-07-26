@@ -33,7 +33,7 @@ public class AsyncChatListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
         Component message = event.message();
@@ -94,7 +94,12 @@ public class AsyncChatListener implements Listener {
             if (meta != null && meta.hasDisplayName()) {
                 nameComponent = meta.displayName();
             } else {
-                nameComponent = Component.translatable(itemStack.getType().translationKey());
+                String fallbackName = io.github.lunatech.chatitem.utility.Util.getFriendlyMaterialName(itemStack.getType().name());
+                nameComponent = Component.translatable(itemStack.getType().translationKey(), fallbackName);
+            }
+
+            if (itemStack.getAmount() > 1) {
+                nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
             }
 
             replacementComponent = MiniMessage.miniMessage().deserialize(

@@ -41,4 +41,31 @@ public final class Util {
     public static int generateRandomInt(int lowerBound, int upperBound) {
         return random.nextInt(lowerBound, upperBound + 1);
     }
+
+    /**
+     * Converts a raw material name (e.g. DIAMOND_SWORD or DIRT) into a friendly display name (e.g. Diamond Sword or Dirt).
+     *
+     * @param materialName the raw material name
+     * @return the friendly display name
+     */
+    public static String getFriendlyMaterialName(String materialName) {
+        if (materialName == null || materialName.isEmpty()) {
+            return "";
+        }
+        String name = materialName.replace('_', ' ').toLowerCase();
+        StringBuilder sb = new StringBuilder();
+        boolean capitalizeNext = true;
+        for (char c : name.toCharArray()) {
+            if (c == ' ') {
+                sb.append(c);
+                capitalizeNext = true;
+            } else if (capitalizeNext) {
+                sb.append(Character.toUpperCase(c));
+                capitalizeNext = false;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
 }
