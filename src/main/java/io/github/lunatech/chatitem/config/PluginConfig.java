@@ -63,14 +63,14 @@ public class PluginConfig implements VersionedConfig {
         @Comment("The permission node required if permissionRequired is true.")
         public String permissionNode = "chatitem.showcase.item";
 
-        @Comment("The MiniMessage format for the item tag in chat. Use {name} for the item name.")
-        public String itemFormat = "<gray>[<aqua>{name}</aqua>]";
+        @Comment("The MiniMessage format for the item tag in chat. Use <name> for the item name.")
+        public String itemFormat = "<gray>[<aqua><name></aqua>]";
 
         @Comment("The MiniMessage format when player is holding nothing in main hand.")
         public String emptyHandFormat = "<gray><i>[Empty Hand]</i>";
 
         @Comment("Message sent to the player when they are on cooldown.")
-        public String cooldownMessage = "<red>Please wait {cooldown}s before showcasing items again.";
+        public String cooldownMessage = "<red>Please wait <cooldown>s before showcasing items again.";
     }
 
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
