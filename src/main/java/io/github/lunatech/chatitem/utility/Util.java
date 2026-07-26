@@ -82,10 +82,8 @@ public final class Util {
 
         // 1. Try modern Data Component API (Minecraft 1.20.5+)
         try {
-            var meta = itemStack.getItemMeta();
-            if (meta != null) {
-                var rarity = meta.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
-                if (rarity != null) {
+            var rarity = itemStack.getData(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
+            if (rarity != null) {
                     return switch (rarity) {
                         case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
                         case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
