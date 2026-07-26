@@ -134,16 +134,14 @@ public class AsyncChatListener implements Listener {
             }
 
             if (settings.showIcon) {
-                String materialName = itemStack.getType().name().toLowerCase();
-                if (materialName.equals("enchanted_golden_apple")) {
-                    materialName = "golden_apple";
+                org.bukkit.Material material = itemStack.getType();
+                if (material == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
+                    material = org.bukkit.Material.GOLDEN_APPLE;
                 }
-                boolean isBlockSprite = itemStack.getType().isBlock() && !io.github.lunatech.chatitem.utility.Util.isItemSpriteBlock(itemStack.getType());
-                String atlas = isBlockSprite ? "minecraft:blocks" : "minecraft:items";
-                String sprite = (isBlockSprite ? "block/" : "item/") + materialName;
+                io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
                 String iconTag = settings.iconFormat
-                    .replace("{atlas}", atlas)
-                    .replace("{sprite}", sprite);
+                    .replace("{atlas}", mapping.atlas)
+                    .replace("{sprite}", mapping.sprite);
                 try {
                     Component iconComponent = MiniMessage.miniMessage().deserialize(iconTag)
                         .color(net.kyori.adventure.text.format.NamedTextColor.WHITE);

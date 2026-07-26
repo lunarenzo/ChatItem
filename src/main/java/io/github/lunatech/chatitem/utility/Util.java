@@ -75,12 +75,24 @@ public final class Util {
      * @param material the material type
      * @return true if the block uses a 2D item icon sprite in the items atlas
      */
+    /**
+     * Checks if a material should pull its flat 2D sprite icon from the minecraft:items atlas.
+     * Captures blocks that use 2D items (Chests, Heavy Cores, Heads) and non-block 3D entities (Shields).
+     *
+     * @param material the material type
+     * @return true if the item uses a 2D item icon sprite in the items atlas
+     */
     public static boolean isItemSpriteBlock(org.bukkit.Material material) {
-        if (!material.isBlock()) {
+        if (material == null || material.isAir()) {
             return false;
         }
 
-        // 1. Query public Tag API from Bukkit/Paper (super fast, zero reflection)
+        // 1. CRITICAL: Shields, Tools, Swords, Apples are NOT blocks, but they MUST use the items atlas!
+        if (!material.isBlock()) {
+            return true;
+        }
+
+        // 2. Query public Tag API from Bukkit/Paper (super fast, zero reflection)
         try {
             if (org.bukkit.Tag.DOORS.isTagged(material)
                 || org.bukkit.Tag.BEDS.isTagged(material)
@@ -93,7 +105,7 @@ public final class Util {
             // Ignore and fall back
         }
 
-        // 2. Query NMS via reflection to dynamically identify blocks with animated/invisible inventory sprites
+        // 3. Query NMS via reflection to dynamically identify blocks with animated/invisible inventory sprites
         try {
             Class<?> craftMagicNumbers = Class.forName("org.bukkit.craftbukkit.util.CraftMagicNumbers");
             java.lang.reflect.Method getBlockMethod = craftMagicNumbers.getDeclaredMethod("getBlock", org.bukkit.Material.class);
@@ -116,7 +128,7 @@ public final class Util {
             // Safe fallback if reflection fails due to version mismatches
         }
 
-        // 3. Suffix fallback for other specific blocks (chests, heads, utility blocks, campfire, heavy core, etc.)
+        // 4. Suffix fallback for other specific blocks (chests, heads, utility blocks, campfire, heavy core, etc.)
         String name = material.name();
         return name.endsWith("CHEST")
             || name.endsWith("SHULKER_BOX")
@@ -132,5 +144,82 @@ public final class Util {
             || name.equals("BREWING_STAND")
             || name.equals("CAULDRON")
             || name.equals("BELL");
+    }
+
+    /**
+     * Container class representing the atlas namespace and resource path for a given material icon.
+     */
+    public static class SpriteMapping {
+        public final String atlas;
+        public final String sprite;
+
+        public SpriteMapping(String atlas, String sprite) {
+            this.atlas = atlas;
+            this.sprite = sprite;
+        }
+    }
+
+    /**
+     * Dynamically resolves the correct sprite atlas namespace and path for any Bukkit material.
+     * Handles pluralizations, model variants (Fences, Stairs), and bare registry names (Ender Chest, Heavy Core) cleanly.
+     *
+     * @param material the Material to map
+     * @return a SpriteMapping defining atlas and path
+     */
+    public static SpriteMapping getSpriteMapping(org.bukkit.Material material) {
+        String cleanName = material.name().toLowerCase();
+
+        // CASE 1: Standard Items / Blocks that use 2D Item Sprites
+        if (isItemSpriteBlock(material)) {
+            String spritePath;
+
+            // Handle Shields specifically
+            if (material == org.bukkit.Material.SHIELD) {
+                return new SpriteMapping("minecraft:items", "item/shield_base");
+            }
+
+            // Handle Animated/Entity Blocks that drop the "item/" prefix entirely
+            if (cleanName.endsWith("chest")
+                || cleanName.endsWith("shulker_box")
+                || cleanName.endsWith("head")
+                || cleanName.endsWith("skull")
+                || cleanName.equals("heavy_core")) {
+                spritePath = cleanName; // e.g. "heavy_core" or "ender_chest"
+            } else {
+                spritePath = "item/" + cleanName; // e.g. "item/apple", "item/iron_sword"
+            }
+
+            return new SpriteMapping("minecraft:items", spritePath);
+        }
+
+        // CASE 2: Voxel Blocks that have 3D models in hand (Fences, Stairs, Stone)
+        // These pull standard 2D flat textures out of the blocks atlas instead
+        String blockPath;
+        if (cleanName.endsWith("_fence")) {
+            if (cleanName.contains("nether_brick")) {
+                blockPath = "block/nether_bricks";
+            } else {
+                blockPath = "block/" + cleanName.replace("_fence", "_planks");
+            }
+        } else if (cleanName.endsWith("_stairs")) {
+            String base = cleanName.replace("_stairs", "");
+            if (base.equals("oak") || base.equals("spruce") || base.equals("birch") || base.equals("jungle")
+                || base.equals("acacia") || base.equals("dark_oak") || base.equals("crimson") || base.equals("warped")
+                || base.equals("mangrove") || base.equals("cherry") || base.equals("bamboo")) {
+                blockPath = "block/" + base + "_planks";
+            } else if (base.endsWith("brick")) {
+                blockPath = "block/" + base + "s";
+            } else if (base.equals("purpur")) {
+                blockPath = "block/purpur_block";
+            } else if (base.equals("quartz")) {
+                blockPath = "block/quartz_block";
+            } else {
+                blockPath = "block/" + base;
+            }
+        } else {
+            blockPath = "block/" + cleanName;
+        }
+
+        return new SpriteMapping("minecraft:blocks", blockPath);
     }
 }
