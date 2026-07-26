@@ -114,8 +114,11 @@ public class LegacyChatListener implements Listener {
                 nameComponent = Component.translatable(itemStack.getType().translationKey(), fallbackName);
             }
 
+            Component rawNameComponent = itemStack.displayName();
+
             if (itemStack.getAmount() > 1) {
                 nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
+                rawNameComponent = rawNameComponent.append(Component.text(" x" + itemStack.getAmount()));
             }
 
             if (settings.showIcon) {
@@ -129,14 +132,10 @@ public class LegacyChatListener implements Listener {
                     Component iconComponent = MiniMessage.miniMessage().deserialize(iconTag)
                         .color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
                     nameComponent = iconComponent.append(nameComponent);
+                    rawNameComponent = iconComponent.append(rawNameComponent);
                 } catch (Exception e) {
                     // Gracefully ignore if sprite is unsupported
                 }
-            }
-
-            Component rawNameComponent = nameComponent;
-            if (rawNameComponent.color() == null) {
-                rawNameComponent = rawNameComponent.color(io.github.lunatech.chatitem.utility.Util.getItemRarityColor(itemStack));
             }
 
             if (hoverEvent != null) {
