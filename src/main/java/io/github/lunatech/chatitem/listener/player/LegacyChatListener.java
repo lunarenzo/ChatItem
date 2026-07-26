@@ -135,16 +135,23 @@ public class LegacyChatListener implements Listener {
                 }
             }
 
+            Component rawNameComponent = nameComponent;
+            if (rawNameComponent.color() == null) {
+                rawNameComponent = rawNameComponent.color(io.github.lunatech.chatitem.utility.Util.getItemRarityColor(itemStack));
+            }
+
             if (hoverEvent != null) {
                 nameComponent = nameComponent.hoverEvent(hoverEvent);
+                rawNameComponent = rawNameComponent.hoverEvent(hoverEvent);
             }
 
             if (settings.itemFormat.isEmpty()) {
-                replacementComponent = nameComponent;
+                replacementComponent = rawNameComponent;
             } else {
                 replacementComponent = MiniMessage.miniMessage().deserialize(
                     settings.itemFormat,
-                    Placeholder.component("name", nameComponent)
+                    Placeholder.component("name", nameComponent),
+                    Placeholder.component("raw_name", rawNameComponent)
                 );
             }
 

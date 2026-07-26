@@ -68,4 +68,50 @@ public final class Util {
         }
         return sb.toString();
     }
+
+    /**
+     * Gets the dynamic rarity color of an ItemStack.
+     *
+     * @param itemStack the item stack
+     * @return the Adventure TextColor corresponding to the item's rarity
+     */
+    public static net.kyori.adventure.text.format.TextColor getItemRarityColor(org.bukkit.inventory.ItemStack itemStack) {
+        if (itemStack == null) {
+            return net.kyori.adventure.text.format.NamedTextColor.WHITE;
+        }
+
+        // 1. Try modern Data Component API (Minecraft 1.20.5+)
+        try {
+            var meta = itemStack.getItemMeta();
+            if (meta != null) {
+                var rarity = meta.get(io.papermc.paper.datacomponent.DataComponentTypes.RARITY);
+                if (rarity != null) {
+                    return switch (rarity) {
+                        case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+                        case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                        case RARE -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                        case EPIC -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
+                    };
+                }
+            }
+        } catch (Throwable ignored) {
+            // Fallback if class/method doesn't exist
+        }
+
+        // 2. Try Material Rarity API
+        try {
+            var rarity = itemStack.getType().getItemRarity();
+            if (rarity != null) {
+                return switch (rarity) {
+                    case COMMON -> net.kyori.adventure.text.format.NamedTextColor.WHITE;
+                    case UNCOMMON -> net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+                    case RARE -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
+                    case EPIC -> net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
+                };
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return net.kyori.adventure.text.format.NamedTextColor.WHITE;
+    }
 }

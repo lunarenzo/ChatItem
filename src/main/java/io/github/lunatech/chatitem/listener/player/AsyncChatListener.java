@@ -137,17 +137,24 @@ public class AsyncChatListener implements Listener {
                 }
             }
 
-            // Double insurance: attach the hover event directly to the name component
+            Component rawNameComponent = nameComponent;
+            if (rawNameComponent.color() == null) {
+                rawNameComponent = rawNameComponent.color(io.github.lunatech.chatitem.utility.Util.getItemRarityColor(itemStack));
+            }
+
+            // Double insurance: attach the hover event directly to the name components
             if (hoverEvent != null) {
                 nameComponent = nameComponent.hoverEvent(hoverEvent);
+                rawNameComponent = rawNameComponent.hoverEvent(hoverEvent);
             }
 
             if (settings.itemFormat.isEmpty()) {
-                replacementComponent = nameComponent;
+                replacementComponent = rawNameComponent;
             } else {
                 replacementComponent = MiniMessage.miniMessage().deserialize(
                     settings.itemFormat,
-                    Placeholder.component("name", nameComponent)
+                    Placeholder.component("name", nameComponent),
+                    Placeholder.component("raw_name", rawNameComponent)
                 );
             }
 
