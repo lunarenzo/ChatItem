@@ -121,6 +121,21 @@ public class AsyncChatListener implements Listener {
                 nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
             }
 
+            if (settings.showIcon) {
+                String materialName = itemStack.getType().name().toLowerCase();
+                String atlas = itemStack.getType().isBlock() ? "minecraft:blocks" : "minecraft:items";
+                String sprite = (itemStack.getType().isBlock() ? "block/" : "item/") + materialName;
+                String iconTag = settings.iconFormat
+                    .replace("{atlas}", atlas)
+                    .replace("{sprite}", sprite);
+                try {
+                    Component iconComponent = MiniMessage.miniMessage().deserialize(iconTag);
+                    nameComponent = iconComponent.append(nameComponent);
+                } catch (Exception e) {
+                    // Gracefully ignore if sprite is unsupported
+                }
+            }
+
             // Double insurance: attach the hover event directly to the name component
             if (hoverEvent != null) {
                 nameComponent = nameComponent.hoverEvent(hoverEvent);

@@ -71,6 +71,12 @@ public class PluginConfig implements VersionedConfig {
 
         @Comment("Message sent to the player when they are on cooldown.")
         public String cooldownMessage = "<red>Please wait <cooldown>s before showcasing items again.";
+
+        @Comment("Should the plugin display the item's sprite icon in chat next to the name? (Requires Minecraft 1.21.9+ or client supporting sprite component feature)")
+        public boolean showIcon = false;
+
+        @Comment("The MiniMessage format for the item icon. Use {atlas} and {sprite} for placeholders.")
+        public String iconFormat = "<sprite:\"{atlas}\":\"{sprite}\"> ";
     }
 
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
