@@ -133,7 +133,7 @@ public class AsyncChatListener implements Listener {
                 rawNameComponent = rawNameComponent.color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
             }
 
-            if (settings.showIcon) {
+            if (settings.showIcon && !plugin.getExcludedIconsHandler().isExcluded(itemStack.getType())) {
                 org.bukkit.Material material = itemStack.getType();
                 if (material == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
                     material = org.bukkit.Material.GOLDEN_APPLE;
