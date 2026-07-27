@@ -138,20 +138,20 @@ public class AsyncChatListener implements Listener {
                 if (material == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
                     material = org.bukkit.Material.GOLDEN_APPLE;
                 }
-                io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = plugin.getCustomIconsHandler().getOverride(material);
-                if (mapping == null) {
-                    mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
+                Component iconComponent = plugin.getCustomIconsHandler().getOverride(material, player);
+                if (iconComponent == null) {
+                    io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
+                    String iconTag = settings.iconFormat
+                        .replace("{atlas}", mapping.atlas)
+                        .replace("{sprite}", mapping.sprite);
+                    try {
+                        iconComponent = MiniMessage.miniMessage().deserialize(iconTag)
+                            .color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
+                    } catch (Exception ignored) {}
                 }
-                String iconTag = settings.iconFormat
-                    .replace("{atlas}", mapping.atlas)
-                    .replace("{sprite}", mapping.sprite);
-                try {
-                    Component iconComponent = MiniMessage.miniMessage().deserialize(iconTag)
-                        .color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
+                if (iconComponent != null) {
                     nameComponent = iconComponent.append(nameComponent);
                     rawNameComponent = iconComponent.append(rawNameComponent);
-                } catch (Exception e) {
-                    // Gracefully ignore if sprite is unsupported
                 }
             }
 
