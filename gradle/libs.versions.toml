@@ -1,5 +1,5 @@
 [versions]
-paper-api = "1.21.11-R0.1-SNAPSHOT"
+paper-api = "26.2.build.84-stable"
 paper-run = "1.21.11"
 configurate = "4.2.0-GeyserMC-SNAPSHOT"
 colorparser = "4.2.0"
