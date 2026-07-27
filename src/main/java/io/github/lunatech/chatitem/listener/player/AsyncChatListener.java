@@ -138,7 +138,10 @@ public class AsyncChatListener implements Listener {
                 if (material == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
                     material = org.bukkit.Material.GOLDEN_APPLE;
                 }
-                io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
+                io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = plugin.getCustomIconsHandler().getOverride(material);
+                if (mapping == null) {
+                    mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
+                }
                 String iconTag = settings.iconFormat
                     .replace("{atlas}", mapping.atlas)
                     .replace("{sprite}", mapping.sprite);

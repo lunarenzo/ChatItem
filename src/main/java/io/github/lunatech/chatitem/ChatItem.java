@@ -15,6 +15,7 @@ public class ChatItem extends JavaPlugin {
 
     private ConfigHandler configHandler;
     private io.github.lunatech.chatitem.config.ExcludedIconsHandler excludedIconsHandler;
+    private io.github.lunatech.chatitem.config.CustomIconsHandler customIconsHandler;
     private HookManager hookManager;
     private CommandHandler commandHandler;
     private ListenerHandler listenerHandler;
@@ -32,6 +33,7 @@ public class ChatItem extends JavaPlugin {
 
         configHandler = new ConfigHandler(this);
         excludedIconsHandler = new io.github.lunatech.chatitem.config.ExcludedIconsHandler(this);
+        customIconsHandler = new io.github.lunatech.chatitem.config.CustomIconsHandler(this);
         hookManager = new HookManager(this);
         commandHandler = new CommandHandler(this);
         listenerHandler = new ListenerHandler(this);
@@ -40,6 +42,7 @@ public class ChatItem extends JavaPlugin {
         handlers = List.of(
             configHandler,
             excludedIconsHandler,
+            customIconsHandler,
             hookManager,
             commandHandler,
             listenerHandler,
@@ -77,6 +80,10 @@ public class ChatItem extends JavaPlugin {
 
     public @NotNull io.github.lunatech.chatitem.config.ExcludedIconsHandler getExcludedIconsHandler() {
         return excludedIconsHandler;
+    }
+
+    public @NotNull io.github.lunatech.chatitem.config.CustomIconsHandler getCustomIconsHandler() {
+        return customIconsHandler;
     }
 
     public @NotNull HookManager getHookManager() {
