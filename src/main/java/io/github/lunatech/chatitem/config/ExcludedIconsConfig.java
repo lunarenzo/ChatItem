@@ -18,12 +18,13 @@ public class ExcludedIconsConfig implements VersionedConfig {
     }
 
     @Comment("List of item IDs (material names) or wildcard patterns whose icons should not be shown in chat.\n" +
-             "You can specify exact material names (e.g. MACE, HEAVY_CORE) or wildcard suffixes (e.g. *_FENCE, *_STAIRS).")
+             "You can specify exact material names (e.g. MACE, HEAVY_CORE) or wildcard suffixes (e.g. *_FENCE, *_STAIRS).\n" +
+             "Chests (CHEST, *_CHEST) have been commented out below so they can show their custom player face icons.")
     public List<String> excludedIcons = List.of(
         "*_FENCE",
         "*_STAIRS",
-        "*_CHEST",
-        "CHEST",
+        // "*_CHEST",
+        // "CHEST",
         "*_SHULKER_BOX",
         "SHULKER_BOX",
         "*_HEAD",
