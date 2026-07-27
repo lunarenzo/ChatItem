@@ -94,7 +94,7 @@ public class CustomIconsHandler implements Reloadable {
                     }
                     json = "{\"object\":\"player\",\"player\":\"" + targetName + "\"}";
                 }
-                return GsonComponentSerializer.gson().deserialize(json);
+                return GsonComponentSerializer.gson().deserialize(json).append(Component.text(" "));
             } else {
                 // Default: atlas type
                 String iconFormat = plugin.getConfigHandler().getConfig().itemShowcase.iconFormat;
