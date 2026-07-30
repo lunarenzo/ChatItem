@@ -118,10 +118,6 @@ public class LegacyChatListener implements Listener {
                 nameComponent = Component.translatable(itemStack.getType().translationKey(), fallbackName);
             }
 
-            if (itemStack.getAmount() > 1) {
-                nameComponent = nameComponent.append(Component.text(" x" + itemStack.getAmount()));
-            }
-
             Component rawNameComponent = nameComponent;
             net.kyori.adventure.text.format.TextColor rarityColor = itemStack.displayName().color();
             if (rarityColor != null) {
@@ -160,13 +156,18 @@ public class LegacyChatListener implements Listener {
                 rawNameComponent = rawNameComponent.hoverEvent(hoverEvent);
             }
 
+            Component amountComponent = itemStack.getAmount() > 1
+                ? Component.text(" x" + itemStack.getAmount())
+                : Component.empty();
+
             if (settings.itemFormat.isEmpty()) {
-                replacementComponent = rawNameComponent;
+                replacementComponent = rawNameComponent.append(amountComponent);
             } else {
                 replacementComponent = MiniMessage.miniMessage().deserialize(
                     settings.itemFormat,
                     Placeholder.component("name", nameComponent),
-                    Placeholder.component("raw_name", rawNameComponent)
+                    Placeholder.component("raw_name", rawNameComponent),
+                    Placeholder.component("amount", amountComponent)
                 );
             }
 
