@@ -66,7 +66,7 @@ public class PluginConfig implements VersionedConfig {
         @Comment("The MiniMessage format for the item tag in chat.\n" +
                  "Placeholders:\n" +
                  "  - <name>: The unstyled item name. Inherits the color defined in this format (e.g. <aqua><name></aqua>).\n" +
-                 "  - <raw_name>: The item name styled with its natural vanilla rarity color (e.g. gold for enchanted golden apple, white/yellow for others).\n" +
+                 "  - <raw_name>: The item name styled with its natural vanilla rarity color (e.g. aqua for enchanted golden apple, white for common items).\n" +
                  "  - <amount>: The item quantity suffix (e.g., ' x32' if quantity > 1, empty if quantity is 1).\n" +
                  "Examples:\n" +
                  "  - item-format: \"<white>[<aqua><name></aqua><yellow><amount></yellow>]</white>\" -> renders as [TNT x32] (brackets white, name aqua, amount yellow).\n" +
