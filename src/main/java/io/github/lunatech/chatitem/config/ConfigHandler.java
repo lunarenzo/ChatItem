@@ -44,6 +44,11 @@ public class ConfigHandler implements Reloadable {
             .build(PluginConfig.class);
     }
 
+    @Override
+    public void onReload(ChatItem plugin) {
+        onLoad(plugin);
+    }
+
     /**
      * Gets main config object.
      *

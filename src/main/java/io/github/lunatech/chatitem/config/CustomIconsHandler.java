@@ -251,4 +251,9 @@ public class CustomIconsHandler implements Reloadable, Listener {
         } catch (Throwable ignored) {}
         return null;
     }
+
+    @Override
+    public void onReload(ChatItem plugin) {
+        onLoad(plugin);
+    }
 }

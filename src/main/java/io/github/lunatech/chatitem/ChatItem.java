@@ -69,9 +69,9 @@ public class ChatItem extends JavaPlugin {
     }
 
     public void onReload() {
-        onDisable();
-        onLoad();
-        onEnable();
+        for (Reloadable handler : handlers) {
+            handler.onReload(this);
+        }
     }
 
     public @NotNull ConfigHandler getConfigHandler() {

@@ -21,4 +21,10 @@ public interface Reloadable {
      */
     default void onDisable(ChatItem plugin) {
     }
+
+    /**
+     * On plugin reload.
+     */
+    default void onReload(ChatItem plugin) {
+    }
 }

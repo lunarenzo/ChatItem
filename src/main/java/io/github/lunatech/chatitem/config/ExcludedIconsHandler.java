@@ -71,4 +71,9 @@ public class ExcludedIconsHandler implements Reloadable {
         }
         return false;
     }
+
+    @Override
+    public void onReload(ChatItem plugin) {
+        onLoad(plugin);
+    }
 }
