@@ -63,7 +63,14 @@ public class PluginConfig implements VersionedConfig {
         @Comment("The permission node required if permissionRequired is true.")
         public String permissionNode = "chatitem.showcase.item";
 
-        @Comment("The MiniMessage format for the item tag in chat. Use <name> for the item name. Leave empty \"\" to use the item's natural display name colors without brackets.")
+        @Comment("The MiniMessage format for the item tag in chat.\n" +
+                 "Placeholders:\n" +
+                 "  - <name>: The unstyled item name. Inherits the color defined in this format (e.g. <aqua><name></aqua>).\n" +
+                 "  - <raw_name>: The item name styled with its natural vanilla rarity color (e.g. gold for enchanted golden apple, white/yellow for others).\n" +
+                 "Examples:\n" +
+                 "  - item-format: \"<white>[<aqua><name></aqua>]</white>\" -> renders as [Chest] (brackets white, name aqua).\n" +
+                 "  - item-format: \"<gray>[<raw_name>]</gray>\" -> renders as [Chest] in vanilla rarity colors.\n" +
+                 "  - item-format: \"\" (Default) -> renders the item's raw name directly without custom coloring or enclosing brackets.")
         public String itemFormat = "";
 
         @Comment("The MiniMessage format when player is holding nothing in main hand.")

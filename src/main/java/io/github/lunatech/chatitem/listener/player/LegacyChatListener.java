@@ -150,8 +150,8 @@ public class LegacyChatListener implements Listener {
                     } catch (Exception ignored) {}
                 }
                 if (iconComponent != null) {
-                    nameComponent = iconComponent.append(nameComponent);
-                    rawNameComponent = iconComponent.append(rawNameComponent);
+                    nameComponent = Component.empty().append(iconComponent).append(nameComponent);
+                    rawNameComponent = Component.empty().append(iconComponent).append(rawNameComponent);
                 }
             }
 
