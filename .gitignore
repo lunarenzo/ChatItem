@@ -6,6 +6,7 @@
 *.tmp
 *~
 run/
+papermc-docs/
 
 *.bak
 
