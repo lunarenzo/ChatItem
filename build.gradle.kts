@@ -75,4 +75,12 @@ paper {
             required = false
         }
     }
+
+    commands {
+        register("chatitem") {
+            description = "Main command for ChatItem"
+            aliases = listOf("ci")
+            permission = "chatitem.command"
+        }
+    }
 }

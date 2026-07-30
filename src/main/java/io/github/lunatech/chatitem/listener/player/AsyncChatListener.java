@@ -139,6 +139,9 @@ public class AsyncChatListener implements Listener {
                     material = org.bukkit.Material.GOLDEN_APPLE;
                 }
                 Component iconComponent = plugin.getCustomIconsHandler().getOverride(material, player);
+                if (iconComponent == null && material == org.bukkit.Material.PLAYER_HEAD) {
+                    iconComponent = plugin.getCustomIconsHandler().resolveSkullComponent(itemStack);
+                }
                 if (iconComponent == null) {
                     io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
                     String iconTag = settings.iconFormat

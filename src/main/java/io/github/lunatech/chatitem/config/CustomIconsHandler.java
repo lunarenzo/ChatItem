@@ -9,14 +9,23 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class CustomIconsHandler implements Reloadable {
+public class CustomIconsHandler implements Reloadable, Listener {
     private final ChatItem plugin;
     private final Path configDir;
     private final Logger logger;
@@ -24,6 +33,8 @@ public class CustomIconsHandler implements Reloadable {
     private CustomIconsConfig cfg;
     private final Map<Material, CustomIconsConfig.IconOverride> overrideMap = new ConcurrentHashMap<>();
     private final Map<Material, Component> staticCache = new ConcurrentHashMap<>();
+    private final Map<UUID, Component> playerFaceCache = new ConcurrentHashMap<>();
+    private final Map<String, Component> skullFaceCache = new ConcurrentHashMap<>();
 
     public CustomIconsHandler(ChatItem plugin) {
         this.plugin = plugin;
@@ -42,28 +53,65 @@ public class CustomIconsHandler implements Reloadable {
 
         overrideMap.clear();
         staticCache.clear();
+        playerFaceCache.clear();
+        skullFaceCache.clear();
 
         Map<String, CustomIconsConfig.IconOverride> map = cfg.customIcons;
         if (map != null) {
             for (Map.Entry<String, CustomIconsConfig.IconOverride> entry : map.entrySet()) {
                 if (entry.getKey() == null || entry.getValue() == null) continue;
+                String matName = entry.getKey().trim().toUpperCase(Locale.ROOT);
+                Material material;
                 try {
-                    Material material = Material.valueOf(entry.getKey().trim().toUpperCase());
-                    CustomIconsConfig.IconOverride override = entry.getValue();
-                    overrideMap.put(material, override);
-
-                    // Compile static cache if it doesn't depend on dynamic {player} placeholder
-                    if (isStatic(override)) {
-                        Component component = buildComponent(override, null);
-                        if (component != null) {
-                            staticCache.put(material, component);
-                        }
-                    }
+                    material = Material.valueOf(matName);
                 } catch (IllegalArgumentException e) {
-                    logger.warn("Invalid material ID specified in custom-icons.yml: {}", entry.getKey());
+                    logger.warn("Invalid material ID specified in custom-icons.yml: '{}'. This entry will be ignored.", entry.getKey());
+                    continue;
+                }
+
+                CustomIconsConfig.IconOverride override = entry.getValue();
+
+                // Validate config override structure
+                if ("player".equalsIgnoreCase(override.object)) {
+                    boolean hasName = override.name != null && !override.name.isBlank();
+                    boolean hasUuid = override.uuid != null && !override.uuid.isBlank();
+                    boolean hasHash = override.hash != null && !override.hash.isBlank();
+                    boolean hasValue = override.value != null && !override.value.isBlank();
+                    if (!hasName && !hasUuid && !hasHash && !hasValue) {
+                        logger.warn("Custom player icon for material '{}' has no identity properties (name, uuid, hash, or value). This entry will be ignored.", matName);
+                        continue;
+                    }
+                } else if ("atlas".equalsIgnoreCase(override.object) || override.object == null) {
+                    if (override.atlas == null || override.atlas.isBlank() || override.sprite == null || override.sprite.isBlank()) {
+                        logger.warn("Custom atlas icon for material '{}' is missing required fields (atlas or sprite). This entry will be ignored.", matName);
+                        continue;
+                    }
+                } else {
+                    logger.warn("Custom icon for material '{}' has invalid object type: '{}'. Expected 'atlas' or 'player'. This entry will be ignored.", matName, override.object);
+                    continue;
+                }
+
+                overrideMap.put(material, override);
+
+                // Compile static cache if it doesn't depend on dynamic {player} placeholder
+                if (isStatic(override)) {
+                    Component component = buildComponent(override, null);
+                    if (component != null) {
+                        staticCache.put(material, component);
+                    }
                 }
             }
         }
+    }
+
+    @Override
+    public void onEnable(ChatItem plugin) {
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        playerFaceCache.remove(event.getPlayer().getUniqueId());
     }
 
     private boolean isStatic(CustomIconsConfig.IconOverride override) {
@@ -132,9 +180,75 @@ public class CustomIconsHandler implements Reloadable {
 
         CustomIconsConfig.IconOverride override = overrideMap.get(material);
         if (override != null) {
+            if (player != null && override.name != null && override.name.contains("{player}")) {
+                return playerFaceCache.computeIfAbsent(player.getUniqueId(), uuid ->
+                    buildComponent(override, player.getName())
+                );
+            }
             return buildComponent(override, player != null ? player.getName() : null);
         }
 
+        return null;
+    }
+
+    /**
+     * Resolves dynamic custom player skull metadata to a 2D face component with zero-leak caching.
+     *
+     * @param itemStack the player head ItemStack
+     * @return the resolved face Component, or null
+     */
+    public Component resolveSkullComponent(ItemStack itemStack) {
+        if (itemStack == null || itemStack.getType() != Material.PLAYER_HEAD) return null;
+        try {
+            SkullMeta skullMeta = (SkullMeta) itemStack.getItemMeta();
+            if (skullMeta == null) return null;
+
+            PlayerProfile profile = skullMeta.getPlayerProfile();
+            if (profile != null) {
+                // Check textures property
+                for (ProfileProperty prop : profile.getProperties()) {
+                    if ("textures".equals(prop.getName())) {
+                        String value = prop.getValue();
+                        if (value != null && !value.isBlank()) {
+                            return skullFaceCache.computeIfAbsent(value, val -> {
+                                String json = "{\"object\":\"player\",\"player\":{\"properties\":[{\"name\":\"textures\",\"value\":\"" + val.trim() + "\"}]}}";
+                                try {
+                                    return GsonComponentSerializer.gson().deserialize(json).append(Component.text(" "));
+                                } catch (Exception e) {
+                                    return null;
+                                }
+                            });
+                        }
+                    }
+                }
+
+                // Fallback to profile username
+                String name = profile.getName();
+                if (name != null && !name.isBlank()) {
+                    return skullFaceCache.computeIfAbsent(name, n -> {
+                        String json = "{\"object\":\"player\",\"player\":\"" + n + "\"}";
+                        try {
+                            return GsonComponentSerializer.gson().deserialize(json).append(Component.text(" "));
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    });
+                }
+
+                // Fallback to profile UUID
+                UUID uuid = profile.getId();
+                if (uuid != null) {
+                    return skullFaceCache.computeIfAbsent(uuid.toString(), u -> {
+                        String json = "{\"object\":\"player\",\"player\":{\"id\":\"" + u + "\"}}";
+                        try {
+                            return GsonComponentSerializer.gson().deserialize(json).append(Component.text(" "));
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    });
+                }
+            }
+        } catch (Throwable ignored) {}
         return null;
     }
 }
