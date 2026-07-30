@@ -1,10 +1,36 @@
 package io.github.lunatech.chatitem.utility;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class Util {
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom random = new SecureRandom();
+
+    // In-memory read-only Set containing pre-compiled vanilla item and block sprite paths
+    private static final Set<String> vanillaSprites = new HashSet<>();
+
+    static {
+        try (InputStream is = Util.class.getResourceAsStream("/minecraft-sprites.txt")) {
+            if (is != null) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (!line.isBlank()) {
+                            vanillaSprites.add(line.trim());
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Safe fallback if resources fail to read at class loading time
+        }
+    }
 
     /**
      * Generates a random string using alphanumeric characters
@@ -70,12 +96,6 @@ public final class Util {
     }
 
     /**
-     * Checks if a material is a block but has its 2D inventory icon sprite inside minecraft:items atlas.
-     *
-     * @param material the material type
-     * @return true if the block uses a 2D item icon sprite in the items atlas
-     */
-    /**
      * Checks if a material should pull its flat 2D sprite icon from the minecraft:items atlas.
      * Captures blocks that use 2D items (Chests, Heavy Cores, Heads) and non-block 3D entities (Shields).
      *
@@ -136,7 +156,7 @@ public final class Util {
             || name.endsWith("SIGN")
             || name.endsWith("HEAD")
             || name.endsWith("SKULL")
-            || name.endsWith("DOOR")
+            || (name.endsWith("DOOR") && !name.endsWith("TRAPDOOR"))
             || name.endsWith("BED")
             || name.endsWith("CAMPFIRE")
             || name.endsWith("POT")
@@ -161,7 +181,7 @@ public final class Util {
 
     /**
      * Dynamically resolves the correct sprite atlas namespace and path for any Bukkit material.
-     * Handles pluralizations, model variants (Fences, Stairs), and bare registry names (Ender Chest, Heavy Core) cleanly.
+     * Maps using the pre-compiled vanilla textures file for 100% precision.
      *
      * @param material the Material to map
      * @return a SpriteMapping defining atlas and path
@@ -169,7 +189,18 @@ public final class Util {
     public static SpriteMapping getSpriteMapping(org.bukkit.Material material) {
         String cleanName = material.name().toLowerCase();
 
-        // CASE 1: Standard Items / Blocks that use 2D Item Sprites
+        // 1. Perform static O(1) checks against the compiled vanilla sprites resource database
+        String itemPath = "item/" + cleanName;
+        if (vanillaSprites.contains(itemPath)) {
+            return new SpriteMapping("minecraft:items", itemPath);
+        }
+
+        String blockPath = "block/" + cleanName;
+        if (vanillaSprites.contains(blockPath)) {
+            return new SpriteMapping("minecraft:blocks", blockPath);
+        }
+
+        // 2. Dynamic Fallback: Standard Items / Blocks that use 2D Item Sprites
         if (isItemSpriteBlock(material)) {
             String spritePath;
 
@@ -192,34 +223,34 @@ public final class Util {
             return new SpriteMapping("minecraft:items", spritePath);
         }
 
-        // CASE 2: Voxel Blocks that have 3D models in hand (Fences, Stairs, Stone)
+        // 3. Dynamic Fallback: Voxel Blocks that have 3D models in hand (Fences, Stairs, Stone)
         // These pull standard 2D flat textures out of the blocks atlas instead
-        String blockPath;
+        String fallbackBlockPath;
         if (cleanName.endsWith("_fence")) {
             if (cleanName.contains("nether_brick")) {
-                blockPath = "block/nether_bricks";
+                fallbackBlockPath = "block/nether_bricks";
             } else {
-                blockPath = "block/" + cleanName.replace("_fence", "_planks");
+                fallbackBlockPath = "block/" + cleanName.replace("_fence", "_planks");
             }
         } else if (cleanName.endsWith("_stairs")) {
             String base = cleanName.replace("_stairs", "");
             if (base.equals("oak") || base.equals("spruce") || base.equals("birch") || base.equals("jungle")
                 || base.equals("acacia") || base.equals("dark_oak") || base.equals("crimson") || base.equals("warped")
                 || base.equals("mangrove") || base.equals("cherry") || base.equals("bamboo")) {
-                blockPath = "block/" + base + "_planks";
+                fallbackBlockPath = "block/" + base + "_planks";
             } else if (base.endsWith("brick")) {
-                blockPath = "block/" + base + "s";
+                fallbackBlockPath = "block/" + base + "s";
             } else if (base.equals("purpur")) {
-                blockPath = "block/purpur_block";
+                fallbackBlockPath = "block/purpur_block";
             } else if (base.equals("quartz")) {
-                blockPath = "block/quartz_block";
+                fallbackBlockPath = "block/quartz_block";
             } else {
-                blockPath = "block/" + base;
+                fallbackBlockPath = "block/" + base;
             }
         } else {
-            blockPath = "block/" + cleanName;
+            fallbackBlockPath = "block/" + cleanName;
         }
 
-        return new SpriteMapping("minecraft:blocks", blockPath);
+        return new SpriteMapping("minecraft:blocks", fallbackBlockPath);
     }
 }
