@@ -35,6 +35,7 @@ public class CustomIconsHandler implements Reloadable, Listener {
     private final Map<Material, Component> staticCache = new ConcurrentHashMap<>();
     private final Map<UUID, Component> playerFaceCache = new ConcurrentHashMap<>();
     private final Map<String, Component> skullFaceCache = new ConcurrentHashMap<>();
+    private volatile long lastClearTime = System.currentTimeMillis();
 
     public CustomIconsHandler(ChatItem plugin) {
         this.plugin = plugin;
@@ -55,6 +56,7 @@ public class CustomIconsHandler implements Reloadable, Listener {
         staticCache.clear();
         playerFaceCache.clear();
         skullFaceCache.clear();
+        lastClearTime = System.currentTimeMillis();
 
         Map<String, CustomIconsConfig.IconOverride> map = cfg.customIcons;
         if (map != null) {
@@ -199,6 +201,7 @@ public class CustomIconsHandler implements Reloadable, Listener {
      */
     public Component resolveSkullComponent(ItemStack itemStack) {
         if (itemStack == null || itemStack.getType() != Material.PLAYER_HEAD) return null;
+        checkAndCleanCache();
         try {
             SkullMeta skullMeta = (SkullMeta) itemStack.getItemMeta();
             if (skullMeta == null) return null;
@@ -255,5 +258,16 @@ public class CustomIconsHandler implements Reloadable, Listener {
     @Override
     public void onReload(ChatItem plugin) {
         onLoad(plugin);
+    }
+
+    private void checkAndCleanCache() {
+        PluginConfig.CacheSettings settings = plugin.getConfigHandler().getConfig().cacheSettings;
+        long now = System.currentTimeMillis();
+        long expiryMs = settings.skullCacheExpiryHours * 3600000L;
+
+        if (now - lastClearTime > expiryMs || skullFaceCache.size() >= settings.skullCacheMaxSize) {
+            skullFaceCache.clear();
+            lastClearTime = now;
+        }
     }
 }

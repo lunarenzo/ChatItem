@@ -104,4 +104,16 @@ public class PluginConfig implements VersionedConfig {
         @Comment("Title of the showcase inventory GUI.")
         public String invTitle = "<dark_gray>{player}'s Inventory Snapshot";
     }
+
+    @Comment("Cache Settings")
+    public CacheSettings cacheSettings = new CacheSettings();
+
+    @ConfigSerializable
+    public static class CacheSettings {
+        @Comment("Time in hours before the custom skull texture cache is automatically cleared. Default is 168 (1 week).")
+        public int skullCacheExpiryHours = 168;
+
+        @Comment("Maximum number of custom skulls to keep in the cache before cleaning. Default is 1000.")
+        public int skullCacheMaxSize = 1000;
+    }
 }
