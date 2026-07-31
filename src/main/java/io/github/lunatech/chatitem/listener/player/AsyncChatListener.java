@@ -6,6 +6,7 @@ import io.papermc.paper.chat.ChatRenderer;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -19,16 +20,13 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public class AsyncChatListener implements Listener {
     private final ChatItem plugin;
-    private final Pattern tagPattern = Pattern.compile("(?i)\\[(item|i)\\]");
 
     public AsyncChatListener(ChatItem plugin) {
         this.plugin = plugin;
@@ -41,19 +39,28 @@ public class AsyncChatListener implements Listener {
 
         // 1. Fast O(1) text check before doing full parser operations
         String plainText = PlainTextComponentSerializer.plainText().serialize(message);
-        if (!plainText.toLowerCase().contains("[item]") && !plainText.toLowerCase().contains("[i]")) {
+        String plainLower = plainText.toLowerCase();
+
+        boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
+        boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
+
+        if (!hasItemMatch && !hasInvMatch) {
             return;
         }
 
         PluginConfig config = plugin.getConfigHandler().getConfig();
         PluginConfig.ItemShowcase settings = config.itemShowcase;
+        PluginConfig.InventoryShowcase invSettings = config.inventoryShowcase;
 
-        // 2. Permission Check
-        if (settings.permissionRequired && !player.hasPermission(settings.permissionNode)) {
+        boolean hasItemPermission = !settings.permissionRequired || player.hasPermission(settings.permissionNode);
+        boolean hasInvPermission = !invSettings.permissionRequired || player.hasPermission(invSettings.permissionNode);
+
+        // If matched but no permission for either, skip
+        if ((hasItemMatch && !hasItemPermission) && (hasInvMatch && !hasInvPermission)) {
             return;
         }
 
-        // 3. Cooldown Check
+        // 2. Cooldown Check
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
         if (plugin.getCooldownMap().containsKey(uuid)) {
@@ -74,44 +81,53 @@ public class AsyncChatListener implements Listener {
             }
         }
 
-        // 4. Fetch item in hand safely on the Main Tick Thread
-        class ItemDetails {
-            final ItemStack stack;
-            final HoverEvent<HoverEvent.ShowItem> hover;
+        // 3. Fetch item in hand and inventory snapshot safely on the Main Tick Thread
+        class ShowcaseDetails {
+            final ItemStack itemStack;
+            final HoverEvent<HoverEvent.ShowItem> itemHover;
+            final io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap;
 
-            ItemDetails(ItemStack stack, HoverEvent<HoverEvent.ShowItem> hover) {
-                this.stack = stack;
-                this.hover = hover;
+            ShowcaseDetails(ItemStack itemStack, HoverEvent<HoverEvent.ShowItem> itemHover, io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap) {
+                this.itemStack = itemStack;
+                this.itemHover = itemHover;
+                this.invSnap = invSnap;
             }
         }
 
-        CompletableFuture<ItemDetails> itemFuture = new CompletableFuture<>();
+        CompletableFuture<ShowcaseDetails> future = new CompletableFuture<>();
         Bukkit.getScheduler().runTask(plugin, () -> {
-            ItemStack item = player.getInventory().getItemInMainHand();
-            if (item == null || item.getType().isAir()) {
-                itemFuture.complete(new ItemDetails(null, null));
-            } else {
-                ItemStack clone = item.clone();
-                itemFuture.complete(new ItemDetails(clone, clone.asHoverEvent()));
+            ItemStack inHand = null;
+            HoverEvent<HoverEvent.ShowItem> inHandHover = null;
+            if (hasItemMatch && hasItemPermission) {
+                ItemStack item = player.getInventory().getItemInMainHand();
+                if (item != null && !item.getType().isAir()) {
+                    inHand = item.clone();
+                    inHandHover = inHand.asHoverEvent();
+                }
             }
+
+            io.github.lunatech.chatitem.inventory.InventorySnapshot snap = null;
+            if (hasInvMatch && hasInvPermission) {
+                snap = plugin.getInventoryManager().createSnapshot(player);
+            }
+
+            future.complete(new ShowcaseDetails(inHand, inHandHover, snap));
         });
 
-        ItemDetails details;
+        ShowcaseDetails details;
         try {
-            details = itemFuture.get(1, TimeUnit.SECONDS);
+            details = future.get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
-            plugin.getComponentLogger().warn("Failed to fetch item in main hand for player " + player.getName(), e);
+            plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
             return;
         }
 
-        ItemStack itemStack = details.stack;
-        HoverEvent<HoverEvent.ShowItem> hoverEvent = details.hover;
+        // 4. Build replacements
+        Component itemReplacement = null;
+        if (details.itemStack != null) {
+            ItemStack itemStack = details.itemStack;
+            HoverEvent<HoverEvent.ShowItem> hoverEvent = details.itemHover;
 
-        // 5. Build the replacement Component
-        Component replacementComponent;
-        if (itemStack == null || itemStack.getType().isAir()) {
-            replacementComponent = MiniMessage.miniMessage().deserialize(settings.emptyHandFormat);
-        } else {
             ItemMeta meta = itemStack.getItemMeta();
             Component nameComponent;
             if (meta != null && meta.hasDisplayName()) {
@@ -154,7 +170,6 @@ public class AsyncChatListener implements Listener {
                 }
             }
 
-            // Double insurance: attach the hover event directly to the name components
             if (hoverEvent != null) {
                 nameComponent = nameComponent.hoverEvent(hoverEvent);
                 rawNameComponent = rawNameComponent.hoverEvent(hoverEvent);
@@ -165,9 +180,9 @@ public class AsyncChatListener implements Listener {
                 : Component.empty();
 
             if (settings.itemFormat.isEmpty()) {
-                replacementComponent = rawNameComponent.append(amountComponent);
+                itemReplacement = rawNameComponent.append(amountComponent);
             } else {
-                replacementComponent = MiniMessage.miniMessage().deserialize(
+                itemReplacement = MiniMessage.miniMessage().deserialize(
                     settings.itemFormat,
                     Placeholder.component("name", nameComponent),
                     Placeholder.component("raw_name", rawNameComponent),
@@ -175,34 +190,84 @@ public class AsyncChatListener implements Listener {
                 );
             }
 
-            // Double insurance: attach the hover event to the parent wrapper component as well
             if (hoverEvent != null) {
-                replacementComponent = replacementComponent.hoverEvent(hoverEvent);
+                itemReplacement = itemReplacement.hoverEvent(hoverEvent);
             }
         }
 
-        // 6. Perform the replacement across the message
-        TextReplacementConfig replaceConfig = TextReplacementConfig.builder()
-            .match(tagPattern)
-            .replacement(replacementComponent)
-            .build();
+        Component invReplacement = null;
+        if (details.invSnap != null) {
+            String token = plugin.getInventoryManager().registerSnapshot(details.invSnap);
+            invReplacement = MiniMessage.miniMessage()
+                .deserialize(invSettings.inventoryFormat)
+                .hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(config.messages.invHover)))
+                .clickEvent(ClickEvent.runCommand("/chatitem viewinv " + token));
+        }
 
-        event.message(message.replaceText(replaceConfig));
+        // 5. Replace text elements in message
+        boolean replacedAny = false;
+        Component finalMessage = message;
 
-        // Wrap the chat renderer to ensure compatibility with formatting plugins that serialize/deserialize components (like EssentialsChat)
+        if (details.itemStack != null) {
+            TextReplacementConfig itemConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[(item|i)\\]"))
+                .replacement(itemReplacement)
+                .build();
+            finalMessage = finalMessage.replaceText(itemConfig);
+            replacedAny = true;
+        } else if (hasItemMatch && hasItemPermission) {
+            Component emptyReplacement = MiniMessage.miniMessage().deserialize(settings.emptyHandFormat);
+            TextReplacementConfig itemConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[(item|i)\\]"))
+                .replacement(emptyReplacement)
+                .build();
+            finalMessage = finalMessage.replaceText(itemConfig);
+            replacedAny = true;
+        }
+
+        if (invReplacement != null) {
+            TextReplacementConfig invConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
+                .replacement(invReplacement)
+                .build();
+            finalMessage = finalMessage.replaceText(invConfig);
+            replacedAny = true;
+        }
+
+        if (!replacedAny) {
+            return;
+        }
+
+        event.message(finalMessage);
+
+        final Component finalItemRep = details.itemStack != null ? itemReplacement : (hasItemMatch && hasItemPermission ? MiniMessage.miniMessage().deserialize(settings.emptyHandFormat) : null);
+        final Component finalInvRep = invReplacement;
+
         ChatRenderer originalRenderer = event.renderer();
         event.renderer((source, sourceDisplayName, msg, viewer) -> {
             Component rendered = originalRenderer.render(source, sourceDisplayName, msg, viewer);
-            return rendered.replaceText(replaceConfig);
+            Component newRendered = rendered;
+            if (finalItemRep != null) {
+                newRendered = newRendered.replaceText(TextReplacementConfig.builder()
+                    .match(Pattern.compile("(?i)\\[(item|i)\\]"))
+                    .replacement(finalItemRep)
+                    .build());
+            }
+            if (finalInvRep != null) {
+                newRendered = newRendered.replaceText(TextReplacementConfig.builder()
+                    .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
+                    .replacement(finalInvRep)
+                    .build());
+            }
+            return newRendered;
         });
 
-        // 7. Update cooldown
+        // 6. Update cooldown
         plugin.getCooldownMap().put(uuid, now);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        // Prevent memory accumulation by cleaning entries when players disconnect
         plugin.getCooldownMap().remove(event.getPlayer().getUniqueId());
         plugin.getLastWarnedMap().remove(event.getPlayer().getUniqueId());
     }

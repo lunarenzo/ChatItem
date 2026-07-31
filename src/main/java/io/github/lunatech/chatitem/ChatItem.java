@@ -20,6 +20,7 @@ public class ChatItem extends JavaPlugin {
     private CommandHandler commandHandler;
     private ListenerHandler listenerHandler;
     private SchedulerHandler schedulerHandler;
+    private io.github.lunatech.chatitem.inventory.InventoryManager inventoryManager;
 
     private List<? extends Reloadable> handlers;
 
@@ -38,6 +39,7 @@ public class ChatItem extends JavaPlugin {
         commandHandler = new CommandHandler(this);
         listenerHandler = new ListenerHandler(this);
         schedulerHandler = new SchedulerHandler();
+        inventoryManager = new io.github.lunatech.chatitem.inventory.InventoryManager(this);
 
         handlers = List.of(
             configHandler,
@@ -46,7 +48,8 @@ public class ChatItem extends JavaPlugin {
             hookManager,
             commandHandler,
             listenerHandler,
-            schedulerHandler
+            schedulerHandler,
+            inventoryManager
         );
 
         for (Reloadable handler : handlers) {
@@ -59,6 +62,7 @@ public class ChatItem extends JavaPlugin {
         for (Reloadable handler : handlers) {
             handler.onEnable(this);
         }
+        getServer().getPluginManager().registerEvents(new io.github.lunatech.chatitem.inventory.InventoryListener(), this);
     }
 
     @Override
@@ -100,5 +104,9 @@ public class ChatItem extends JavaPlugin {
 
     public @NotNull java.util.Map<java.util.UUID, Long> getLastWarnedMap() {
         return lastWarnedMap;
+    }
+
+    public @NotNull io.github.lunatech.chatitem.inventory.InventoryManager getInventoryManager() {
+        return inventoryManager;
     }
 }

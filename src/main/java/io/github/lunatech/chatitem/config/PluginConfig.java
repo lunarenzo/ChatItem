@@ -87,6 +87,21 @@ public class PluginConfig implements VersionedConfig {
         public String iconFormat = "<sprite:\"{atlas}\":\"{sprite}\"> ";
     }
 
+    @Comment("Inventory Showcase Settings")
+    public InventoryShowcase inventoryShowcase = new InventoryShowcase();
+
+    @ConfigSerializable
+    public static class InventoryShowcase {
+        @Comment("Is a permission required to use [inv] or [inventory]?")
+        public boolean permissionRequired = true;
+
+        @Comment("The permission node required if permissionRequired is true.")
+        public String permissionNode = "chatitem.showcase.inventory";
+
+        @Comment("The MiniMessage format for the inventory tag in chat.")
+        public String inventoryFormat = "<white>[<green>Inventory</green>]</white>";
+    }
+
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
     public Messages messages = new Messages();
 

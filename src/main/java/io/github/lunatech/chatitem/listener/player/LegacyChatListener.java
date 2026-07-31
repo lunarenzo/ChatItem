@@ -4,10 +4,12 @@ import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.config.PluginConfig;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,40 +20,45 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public class LegacyChatListener implements Listener {
     private final ChatItem plugin;
-    private final Pattern tagPattern = Pattern.compile("(?i)\\[(item|i)\\]");
 
     public LegacyChatListener(ChatItem plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onLegacyChat(AsyncPlayerChatEvent event) {
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
         String message = event.getMessage();
 
         // 1. Fast text check
-        if (!message.toLowerCase().contains("[item]") && !message.toLowerCase().contains("[i]")) {
+        String plainLower = message.toLowerCase();
+        boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
+        boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
+
+        if (!hasItemMatch && !hasInvMatch) {
             return;
         }
 
         PluginConfig config = plugin.getConfigHandler().getConfig();
         PluginConfig.ItemShowcase settings = config.itemShowcase;
+        PluginConfig.InventoryShowcase invSettings = config.inventoryShowcase;
 
-        // 2. Permission Check
-        if (settings.permissionRequired && !player.hasPermission(settings.permissionNode)) {
+        boolean hasItemPermission = !settings.permissionRequired || player.hasPermission(settings.permissionNode);
+        boolean hasInvPermission = !invSettings.permissionRequired || player.hasPermission(invSettings.permissionNode);
+
+        // If matched but no permission for either, skip
+        if ((hasItemMatch && !hasItemPermission) && (hasInvMatch && !hasInvPermission)) {
             return;
         }
 
-        // 3. Cooldown Check
+        // 2. Cooldown Check
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
         if (plugin.getCooldownMap().containsKey(uuid)) {
@@ -72,43 +79,53 @@ public class LegacyChatListener implements Listener {
             }
         }
 
-        // 4. Fetch item in hand safely on the Main Tick Thread
-        class ItemDetails {
-            final ItemStack stack;
-            final HoverEvent<HoverEvent.ShowItem> hover;
+        // 3. Fetch item in hand and inventory snapshot safely on the Main Tick Thread
+        class ShowcaseDetails {
+            final ItemStack itemStack;
+            final HoverEvent<HoverEvent.ShowItem> itemHover;
+            final io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap;
 
-            ItemDetails(ItemStack stack, HoverEvent<HoverEvent.ShowItem> hover) {
-                this.stack = stack;
-                this.hover = hover;
+            ShowcaseDetails(ItemStack itemStack, HoverEvent<HoverEvent.ShowItem> itemHover, io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap) {
+                this.itemStack = itemStack;
+                this.itemHover = itemHover;
+                this.invSnap = invSnap;
             }
         }
-        CompletableFuture<ItemDetails> itemFuture = new CompletableFuture<>();
+
+        CompletableFuture<ShowcaseDetails> future = new CompletableFuture<>();
         Bukkit.getScheduler().runTask(plugin, () -> {
-            ItemStack item = player.getInventory().getItemInMainHand();
-            if (item == null || item.getType().isAir()) {
-                itemFuture.complete(new ItemDetails(null, null));
-            } else {
-                ItemStack clone = item.clone();
-                itemFuture.complete(new ItemDetails(clone, clone.asHoverEvent()));
+            ItemStack inHand = null;
+            HoverEvent<HoverEvent.ShowItem> inHandHover = null;
+            if (hasItemMatch && hasItemPermission) {
+                ItemStack item = player.getInventory().getItemInMainHand();
+                if (item != null && !item.getType().isAir()) {
+                    inHand = item.clone();
+                    inHandHover = inHand.asHoverEvent();
+                }
             }
+
+            io.github.lunatech.chatitem.inventory.InventorySnapshot snap = null;
+            if (hasInvMatch && hasInvPermission) {
+                snap = plugin.getInventoryManager().createSnapshot(player);
+            }
+
+            future.complete(new ShowcaseDetails(inHand, inHandHover, snap));
         });
 
-        ItemDetails details;
+        ShowcaseDetails details;
         try {
-            details = itemFuture.get(1, TimeUnit.SECONDS);
+            details = future.get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
-            plugin.getComponentLogger().warn("Failed to fetch item in main hand for player " + player.getName(), e);
+            plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
             return;
         }
 
-        ItemStack itemStack = details.stack;
-        HoverEvent<HoverEvent.ShowItem> hoverEvent = details.hover;
+        // 4. Build replacements
+        Component itemReplacement = null;
+        if (details.itemStack != null) {
+            ItemStack itemStack = details.itemStack;
+            HoverEvent<HoverEvent.ShowItem> hoverEvent = details.itemHover;
 
-        // 5. Build the replacement Component
-        Component replacementComponent;
-        if (itemStack == null || itemStack.getType().isAir()) {
-            replacementComponent = MiniMessage.miniMessage().deserialize(settings.emptyHandFormat);
-        } else {
             ItemMeta meta = itemStack.getItemMeta();
             Component nameComponent;
             if (meta != null && meta.hasDisplayName()) {
@@ -161,9 +178,9 @@ public class LegacyChatListener implements Listener {
                 : Component.empty();
 
             if (settings.itemFormat.isEmpty()) {
-                replacementComponent = rawNameComponent.append(amountComponent);
+                itemReplacement = rawNameComponent.append(amountComponent);
             } else {
-                replacementComponent = MiniMessage.miniMessage().deserialize(
+                itemReplacement = MiniMessage.miniMessage().deserialize(
                     settings.itemFormat,
                     Placeholder.component("name", nameComponent),
                     Placeholder.component("raw_name", rawNameComponent),
@@ -172,30 +189,59 @@ public class LegacyChatListener implements Listener {
             }
 
             if (hoverEvent != null) {
-                replacementComponent = replacementComponent.hoverEvent(hoverEvent);
+                itemReplacement = itemReplacement.hoverEvent(hoverEvent);
             }
         }
 
-        // 6. Perform the replacement across the message Component
-        TextReplacementConfig replaceConfig = TextReplacementConfig.builder()
-            .match(tagPattern)
-            .replacement(replacementComponent)
-            .build();
+        Component invReplacement = null;
+        if (details.invSnap != null) {
+            String token = plugin.getInventoryManager().registerSnapshot(details.invSnap);
+            invReplacement = MiniMessage.miniMessage()
+                .deserialize(invSettings.inventoryFormat)
+                .hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(config.messages.invHover)))
+                .clickEvent(ClickEvent.runCommand("/chatitem viewinv " + token));
+        }
 
+        // 5. Replace message parts
         Component displayNameComponent = LegacyComponentSerializer.legacySection().deserialize(player.getDisplayName());
-        Component messageComponent = LegacyComponentSerializer.legacySection().deserialize(message).replaceText(replaceConfig);
+        Component messageComponent = LegacyComponentSerializer.legacySection().deserialize(message);
 
-        // 7. Format the final output Component using Spigot format structure
+        final Component finalItemRep = details.itemStack != null ? itemReplacement : (hasItemMatch && hasItemPermission ? MiniMessage.miniMessage().deserialize(settings.emptyHandFormat) : null);
+        final Component finalInvRep = invReplacement;
+
+        boolean replacedAny = false;
+        if (finalItemRep != null) {
+            TextReplacementConfig itemConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[(item|i)\\]"))
+                .replacement(finalItemRep)
+                .build();
+            messageComponent = messageComponent.replaceText(itemConfig);
+            replacedAny = true;
+        }
+        if (finalInvRep != null) {
+            TextReplacementConfig invConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
+                .replacement(finalInvRep)
+                .build();
+            messageComponent = messageComponent.replaceText(invConfig);
+            replacedAny = true;
+        }
+
+        if (!replacedAny) {
+            return;
+        }
+
+        // 6. Format the final output Component using Spigot format structure
         Component finalComponent = formatLegacyChat(event.getFormat(), displayNameComponent, messageComponent);
 
-        // 8. Cancel event and manually broadcast Component to all recipients
+        // 7. Cancel event and manually broadcast Component to all recipients
         event.setCancelled(true);
         for (Player recipient : event.getRecipients()) {
             recipient.sendMessage(finalComponent);
         }
         Bukkit.getConsoleSender().sendMessage(finalComponent);
 
-        // 9. Update cooldown
+        // 8. Update cooldown
         plugin.getCooldownMap().put(uuid, now);
     }
 
