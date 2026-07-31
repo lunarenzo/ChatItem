@@ -25,7 +25,7 @@ public class InventoryManager implements Reloadable {
     
     // Thread-safe FIFO eviction cache using Collections.synchronizedMap and LinkedHashMap
     private final Map<String, InventorySnapshot> cache = Collections.synchronizedMap(
-        new LinkedHashMap<String, InventorySnapshot>(16, 0.75f, true) {
+        new LinkedHashMap<String, InventorySnapshot>(16, 0.75f, false) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, InventorySnapshot> eldest) {
                 return size() > plugin.getConfigHandler().getConfig().inventoryShowcase.inventoryCacheMaxSize;
