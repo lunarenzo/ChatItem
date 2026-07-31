@@ -3,13 +3,9 @@ package io.github.lunatech.chatitem.listener.player;
 import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.config.PluginConfig;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextReplacementConfig;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,13 +13,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 public class LegacyChatListener implements Listener {
     private final ChatItem plugin;
@@ -48,15 +39,6 @@ public class LegacyChatListener implements Listener {
 
         PluginConfig config = plugin.getConfigHandler().getConfig();
         PluginConfig.ItemShowcase settings = config.itemShowcase;
-        PluginConfig.InventoryShowcase invSettings = config.inventoryShowcase;
-
-        boolean hasItemPermission = !settings.permissionRequired || player.hasPermission(settings.permissionNode);
-        boolean hasInvPermission = !invSettings.permissionRequired || player.hasPermission(invSettings.permissionNode);
-
-        // If matched but no permission for either, skip
-        if ((hasItemMatch && !hasItemPermission) && (hasInvMatch && !hasInvPermission)) {
-            return;
-        }
 
         // 2. Cooldown Check
         UUID uuid = player.getUniqueId();
@@ -79,174 +61,25 @@ public class LegacyChatListener implements Listener {
             }
         }
 
-        // 3. Fetch item in hand and inventory snapshot safely on the Main Tick Thread
-        class ShowcaseDetails {
-            final ItemStack itemStack;
-            final HoverEvent<HoverEvent.ShowItem> itemHover;
-            final io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap;
-
-            ShowcaseDetails(ItemStack itemStack, HoverEvent<HoverEvent.ShowItem> itemHover, io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap) {
-                this.itemStack = itemStack;
-                this.itemHover = itemHover;
-                this.invSnap = invSnap;
-            }
-        }
-
-        CompletableFuture<ShowcaseDetails> future = new CompletableFuture<>();
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            ItemStack inHand = null;
-            HoverEvent<HoverEvent.ShowItem> inHandHover = null;
-            if (hasItemMatch && hasItemPermission) {
-                ItemStack item = player.getInventory().getItemInMainHand();
-                if (item != null && !item.getType().isAir()) {
-                    inHand = item.clone();
-                    inHandHover = inHand.asHoverEvent();
-                }
-            }
-
-            io.github.lunatech.chatitem.inventory.InventorySnapshot snap = null;
-            if (hasInvMatch && hasInvPermission) {
-                snap = plugin.getInventoryManager().createSnapshot(player);
-            }
-
-            future.complete(new ShowcaseDetails(inHand, inHandHover, snap));
-        });
-
-        ShowcaseDetails details;
-        try {
-            details = future.get(1, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
-            return;
-        }
-
-        // 4. Build replacements
-        Component itemReplacement = null;
-        if (details.itemStack != null) {
-            ItemStack itemStack = details.itemStack;
-            HoverEvent<HoverEvent.ShowItem> hoverEvent = details.itemHover;
-
-            ItemMeta meta = itemStack.getItemMeta();
-            Component nameComponent;
-            if (meta != null && meta.hasDisplayName()) {
-                nameComponent = meta.displayName();
-            } else {
-                String fallbackName = io.github.lunatech.chatitem.utility.Util.getFriendlyMaterialName(itemStack.getType().name());
-                nameComponent = Component.translatable(itemStack.getType().translationKey(), fallbackName);
-            }
-
-            Component rawNameComponent = nameComponent;
-            net.kyori.adventure.text.format.TextColor rarityColor = itemStack.displayName().color();
-            if (rarityColor != null) {
-                rawNameComponent = rawNameComponent.color(rarityColor);
-            } else {
-                rawNameComponent = rawNameComponent.color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
-            }
-
-            if (settings.showIcon && !plugin.getExcludedIconsHandler().isExcluded(itemStack.getType())) {
-                org.bukkit.Material material = itemStack.getType();
-                if (material == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
-                    material = org.bukkit.Material.GOLDEN_APPLE;
-                }
-                Component iconComponent = plugin.getCustomIconsHandler().getOverride(material, player);
-                if (iconComponent == null && material == org.bukkit.Material.PLAYER_HEAD) {
-                    iconComponent = plugin.getCustomIconsHandler().resolveSkullComponent(itemStack);
-                }
-                if (iconComponent == null) {
-                    io.github.lunatech.chatitem.utility.Util.SpriteMapping mapping = io.github.lunatech.chatitem.utility.Util.getSpriteMapping(material);
-                    String iconTag = settings.iconFormat
-                        .replace("{atlas}", mapping.atlas)
-                        .replace("{sprite}", mapping.sprite);
-                    try {
-                        iconComponent = MiniMessage.miniMessage().deserialize(iconTag)
-                            .color(net.kyori.adventure.text.format.NamedTextColor.WHITE);
-                    } catch (Exception ignored) {}
-                }
-                if (iconComponent != null) {
-                    nameComponent = Component.empty().append(iconComponent).append(nameComponent);
-                    rawNameComponent = Component.empty().append(iconComponent).append(rawNameComponent);
-                }
-            }
-
-            if (hoverEvent != null) {
-                nameComponent = nameComponent.hoverEvent(hoverEvent);
-                rawNameComponent = rawNameComponent.hoverEvent(hoverEvent);
-            }
-
-            Component amountComponent = itemStack.getAmount() > 1
-                ? Component.text(" x" + itemStack.getAmount())
-                : Component.empty();
-
-            if (settings.itemFormat.isEmpty()) {
-                itemReplacement = rawNameComponent.append(amountComponent);
-            } else {
-                itemReplacement = MiniMessage.miniMessage().deserialize(
-                    settings.itemFormat,
-                    Placeholder.component("name", nameComponent),
-                    Placeholder.component("raw_name", rawNameComponent),
-                    Placeholder.component("amount", amountComponent)
-                );
-            }
-
-            if (hoverEvent != null) {
-                itemReplacement = itemReplacement.hoverEvent(hoverEvent);
-            }
-        }
-
-        Component invReplacement = null;
-        if (details.invSnap != null) {
-            String token = plugin.getInventoryManager().registerSnapshot(details.invSnap);
-            Component playerHead = plugin.getCustomIconsHandler().getPlayerFace(player);
-            invReplacement = MiniMessage.miniMessage().deserialize(
-                invSettings.inventoryFormat,
-                Placeholder.unparsed("player_name", player.getName()),
-                Placeholder.component("player_head", playerHead)
-            );
-            invReplacement = invReplacement
-                .hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(config.messages.invHover)))
-                .clickEvent(ClickEvent.runCommand("/chatitem viewinv " + token));
-        }
-
-        // 5. Replace message parts
-        Component displayNameComponent = LegacyComponentSerializer.legacySection().deserialize(player.getDisplayName());
+        // 3. Delegate processing
         Component messageComponent = LegacyComponentSerializer.legacySection().deserialize(message);
-
-        final Component finalItemRep = details.itemStack != null ? itemReplacement : (hasItemMatch && hasItemPermission ? MiniMessage.miniMessage().deserialize(settings.emptyHandFormat) : null);
-        final Component finalInvRep = invReplacement;
-
-        boolean replacedAny = false;
-        if (finalItemRep != null) {
-            TextReplacementConfig itemConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[(item|i)\\]"))
-                .replacement(finalItemRep)
-                .build();
-            messageComponent = messageComponent.replaceText(itemConfig);
-            replacedAny = true;
-        }
-        if (finalInvRep != null) {
-            TextReplacementConfig invConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
-                .replacement(finalInvRep)
-                .build();
-            messageComponent = messageComponent.replaceText(invConfig);
-            replacedAny = true;
-        }
-
-        if (!replacedAny) {
+        ShowcaseProcessor.ProcessedResult result = ShowcaseProcessor.processShowcase(plugin, player, messageComponent);
+        if (!result.replaced) {
             return;
         }
 
-        // 6. Format the final output Component using Spigot format structure
-        Component finalComponent = formatLegacyChat(event.getFormat(), displayNameComponent, messageComponent);
+        // 4. Format the final output Component using Spigot format structure
+        Component displayNameComponent = LegacyComponentSerializer.legacySection().deserialize(player.getDisplayName());
+        Component finalComponent = formatLegacyChat(event.getFormat(), displayNameComponent, result.replacedMessage);
 
-        // 7. Cancel event and manually broadcast Component to all recipients
+        // 5. Cancel event and manually broadcast Component to all recipients
         event.setCancelled(true);
         for (Player recipient : event.getRecipients()) {
             recipient.sendMessage(finalComponent);
         }
         Bukkit.getConsoleSender().sendMessage(finalComponent);
 
-        // 8. Update cooldown
+        // 6. Update cooldown
         plugin.getCooldownMap().put(uuid, now);
     }
 
