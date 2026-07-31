@@ -31,7 +31,6 @@ public class CommandHandler implements Reloadable {
         plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
             // Build the main chatitem command structure using Brigadier
             LiteralArgumentBuilder<CommandSourceStack> builder = Commands.literal("chatitem")
-                .requires(source -> source.getSender().hasPermission("chatitem.command"))
                 .executes(ctx -> {
                     ctx.getSource().getSender().sendMessage(Component.text("ChatItem version " + plugin.getPluginMeta().getVersion(), NamedTextColor.GOLD));
                     return Command.SINGLE_SUCCESS;

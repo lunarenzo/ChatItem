@@ -87,18 +87,23 @@ public class PluginConfig implements VersionedConfig {
         public String iconFormat = "<sprite:\"{atlas}\":\"{sprite}\"> ";
     }
 
-    @Comment("Inventory Showcase Settings")
+    @Comment("Inventory Showcase Settings\n" +
+             "---------------------------\n" +
+             "Allows players to showcase their current inventory state in chat via '[inv]' or '[inventory]'.\n" +
+             "When clicked, viewers are presented with a read-only 54-slot chest GUI matching their profile.\n" +
+             "To prevent item-theft exploits, all clicks and drags inside this GUI are cancelled.\n\n" +
+             "Format Customization:\n" +
+             "  The 'inventoryFormat' option supports the following placeholders:\n" +
+             "    - <player_name>: The name of the player showcasing their inventory.\n" +
+             "    - <player_head>: The player's 2D skin face sprite component (requires Minecraft 1.21.9+ atlas).\n" +
+             "  Example:\n" +
+             "    inventoryFormat: \"<white>[<player_head><green><player_name>'s Inventory</green>]</white>\"")
     public InventoryShowcase inventoryShowcase = new InventoryShowcase();
 
     @ConfigSerializable
     public static class InventoryShowcase {
-        @Comment("Is a permission required to use [inv] or [inventory]?")
         public boolean permissionRequired = true;
-
-        @Comment("The permission node required if permissionRequired is true.")
         public String permissionNode = "chatitem.showcase.inventory";
-
-        @Comment("The MiniMessage format for the inventory tag in chat. Placeholders: <player_name> (player name), <player_head> (2D player face icon).")
         public String inventoryFormat = "<white>[<player_head><green><player_name>'s Inventory</green>]</white>";
     }
 
