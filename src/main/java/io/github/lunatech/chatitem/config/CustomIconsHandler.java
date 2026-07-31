@@ -255,6 +255,27 @@ public class CustomIconsHandler implements Reloadable, Listener {
         return null;
     }
 
+    /**
+     * Dynamically gets or creates the 2D player face component of the showcasing player.
+     *
+     * @param player the Player
+     * @return the player face Component
+     */
+    public Component getPlayerFace(Player player) {
+        if (player == null) {
+            String json = "{\"object\":\"player\",\"player\":\"Steve\"}";
+            return GsonComponentSerializer.gson().deserialize(json).append(Component.text(" "));
+        }
+        return playerFaceCache.computeIfAbsent(player.getUniqueId(), uuid -> {
+            String json = "{\"object\":\"player\",\"player\":\"" + player.getName() + "\"}";
+            try {
+                return GsonComponentSerializer.gson().deserialize(json).append(Component.text(" "));
+            } catch (Exception e) {
+                return Component.empty();
+            }
+        });
+    }
+
     @Override
     public void onReload(ChatItem plugin) {
         onLoad(plugin);

@@ -98,8 +98,8 @@ public class PluginConfig implements VersionedConfig {
         @Comment("The permission node required if permissionRequired is true.")
         public String permissionNode = "chatitem.showcase.inventory";
 
-        @Comment("The MiniMessage format for the inventory tag in chat.")
-        public String inventoryFormat = "<white>[<green>Inventory</green>]</white>";
+        @Comment("The MiniMessage format for the inventory tag in chat. Placeholders: <player_name> (player name), <player_head> (2D player face icon).")
+        public String inventoryFormat = "<white>[<player_head><green><player_name>'s Inventory</green>]</white>";
     }
 
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")

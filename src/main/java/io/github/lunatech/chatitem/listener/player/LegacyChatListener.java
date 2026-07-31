@@ -196,8 +196,13 @@ public class LegacyChatListener implements Listener {
         Component invReplacement = null;
         if (details.invSnap != null) {
             String token = plugin.getInventoryManager().registerSnapshot(details.invSnap);
-            invReplacement = MiniMessage.miniMessage()
-                .deserialize(invSettings.inventoryFormat)
+            Component playerHead = plugin.getCustomIconsHandler().getPlayerFace(player);
+            invReplacement = MiniMessage.miniMessage().deserialize(
+                invSettings.inventoryFormat,
+                Placeholder.unparsed("player_name", player.getName()),
+                Placeholder.component("player_head", playerHead)
+            );
+            invReplacement = invReplacement
                 .hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(config.messages.invHover)))
                 .clickEvent(ClickEvent.runCommand("/chatitem viewinv " + token));
         }
