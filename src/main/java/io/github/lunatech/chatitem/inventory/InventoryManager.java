@@ -17,10 +17,12 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class InventoryManager implements Reloadable {
     private final ChatItem plugin;
     private final Map<String, InventorySnapshot> cache = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<String> tokenOrder = new ConcurrentLinkedQueue<>();
     private BukkitTask cleanupTask;
 
     public InventoryManager(ChatItem plugin) {
@@ -32,7 +34,14 @@ public class InventoryManager implements Reloadable {
         // Run cleanup task asynchronously every 30 seconds to clean expired snapshots
         cleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             long now = System.currentTimeMillis();
-            cache.values().removeIf(snapshot -> now - snapshot.timestamp() > 300000L); // 5 minutes TTL
+            long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
+            cache.entrySet().removeIf(entry -> {
+                boolean expired = now - entry.getValue().timestamp() > ttlMs;
+                if (expired) {
+                    tokenOrder.remove(entry.getKey());
+                }
+                return expired;
+            });
         }, 600L, 600L);
     }
 
@@ -43,11 +52,13 @@ public class InventoryManager implements Reloadable {
             cleanupTask = null;
         }
         cache.clear();
+        tokenOrder.clear();
     }
 
     @Override
     public void onReload(ChatItem plugin) {
         cache.clear();
+        tokenOrder.clear();
     }
 
     /**
@@ -74,11 +85,11 @@ public class InventoryManager implements Reloadable {
             items[i] = pane;
         }
 
-        // 2. Player Head (Slot 0)
+        // 2. Player Head (Slot 0) - Using setPlayerProfile to embed textures directly for 100% offline-safety
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
         if (skullMeta != null) {
-            skullMeta.setOwningPlayer(player);
+            skullMeta.setPlayerProfile(player.getPlayerProfile());
             String titleFormat = plugin.getConfigHandler().getConfig().messages.invTitle;
             Component nameComp = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
                 titleFormat.replace("{player}", player.getName())
@@ -131,6 +142,7 @@ public class InventoryManager implements Reloadable {
 
     /**
      * Registers a snapshot in the cache and generates a token for it.
+     * Enforces a hard FIFO cache capacity constraint.
      *
      * @param snapshot the snapshot to cache
      * @return the generated token
@@ -138,6 +150,17 @@ public class InventoryManager implements Reloadable {
     public String registerSnapshot(InventorySnapshot snapshot) {
         String token = Util.randomString(8);
         cache.put(token, snapshot);
+        tokenOrder.add(token);
+
+        int maxCap = plugin.getConfigHandler().getConfig().inventoryShowcase.inventoryCacheMaxSize;
+        while (cache.size() > maxCap) {
+            String oldest = tokenOrder.poll();
+            if (oldest != null) {
+                cache.remove(oldest);
+            } else {
+                break;
+            }
+        }
         return token;
     }
 
@@ -150,9 +173,11 @@ public class InventoryManager implements Reloadable {
      */
     public boolean openInventory(Player viewer, String token) {
         InventorySnapshot snapshot = cache.get(token);
-        if (snapshot == null || System.currentTimeMillis() - snapshot.timestamp() > 300000L) {
+        long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
+        if (snapshot == null || System.currentTimeMillis() - snapshot.timestamp() > ttlMs) {
             if (snapshot != null) {
                 cache.remove(token);
+                tokenOrder.remove(token);
             }
             return false;
         }

@@ -105,6 +105,8 @@ public class PluginConfig implements VersionedConfig {
         public boolean permissionRequired = true;
         public String permissionNode = "chatitem.showcase.inventory";
         public String inventoryFormat = "<white>[<player_head><green><player_name>'s Inventory</green>]</white>";
+        public int inventorySnapshotTtlSeconds = 300;
+        public int inventoryCacheMaxSize = 500;
     }
 
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
