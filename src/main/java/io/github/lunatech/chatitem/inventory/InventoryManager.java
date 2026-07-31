@@ -13,16 +13,26 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.profile.PlayerProfile;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class InventoryManager implements Reloadable {
     private final ChatItem plugin;
-    private final Map<String, InventorySnapshot> cache = new ConcurrentHashMap<>();
-    private final ConcurrentLinkedQueue<String> tokenOrder = new ConcurrentLinkedQueue<>();
+    
+    // Thread-safe FIFO eviction cache using Collections.synchronizedMap and LinkedHashMap
+    private final Map<String, InventorySnapshot> cache = Collections.synchronizedMap(
+        new LinkedHashMap<String, InventorySnapshot>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, InventorySnapshot> eldest) {
+                return size() > plugin.getConfigHandler().getConfig().inventoryShowcase.inventoryCacheMaxSize;
+            }
+        }
+    );
+    
     private BukkitTask cleanupTask;
 
     public InventoryManager(ChatItem plugin) {
@@ -35,13 +45,9 @@ public class InventoryManager implements Reloadable {
         cleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             long now = System.currentTimeMillis();
             long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
-            cache.entrySet().removeIf(entry -> {
-                boolean expired = now - entry.getValue().timestamp() > ttlMs;
-                if (expired) {
-                    tokenOrder.remove(entry.getKey());
-                }
-                return expired;
-            });
+            synchronized (cache) {
+                cache.values().removeIf(snapshot -> now - snapshot.timestamp() > ttlMs);
+            }
         }, 600L, 600L);
     }
 
@@ -52,13 +58,11 @@ public class InventoryManager implements Reloadable {
             cleanupTask = null;
         }
         cache.clear();
-        tokenOrder.clear();
     }
 
     @Override
     public void onReload(ChatItem plugin) {
         cache.clear();
-        tokenOrder.clear();
     }
 
     /**
@@ -89,7 +93,8 @@ public class InventoryManager implements Reloadable {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
         if (skullMeta != null) {
-            skullMeta.setPlayerProfile(player.getPlayerProfile());
+            PlayerProfile profile = player.getPlayerProfile();
+            skullMeta.setPlayerProfile(profile);
             String titleFormat = plugin.getConfigHandler().getConfig().messages.invTitle;
             Component nameComp = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
                 titleFormat.replace("{player}", player.getName())
@@ -150,17 +155,6 @@ public class InventoryManager implements Reloadable {
     public String registerSnapshot(InventorySnapshot snapshot) {
         String token = Util.randomString(8);
         cache.put(token, snapshot);
-        tokenOrder.add(token);
-
-        int maxCap = plugin.getConfigHandler().getConfig().inventoryShowcase.inventoryCacheMaxSize;
-        while (cache.size() > maxCap) {
-            String oldest = tokenOrder.poll();
-            if (oldest != null) {
-                cache.remove(oldest);
-            } else {
-                break;
-            }
-        }
         return token;
     }
 
@@ -177,7 +171,6 @@ public class InventoryManager implements Reloadable {
         if (snapshot == null || System.currentTimeMillis() - snapshot.timestamp() > ttlMs) {
             if (snapshot != null) {
                 cache.remove(token);
-                tokenOrder.remove(token);
             }
             return false;
         }
