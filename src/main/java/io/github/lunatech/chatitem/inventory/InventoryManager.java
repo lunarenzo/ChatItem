@@ -38,7 +38,7 @@ public class InventoryManager implements Reloadable {
         new LinkedHashMap<String, EnderChestSnapshot>(16, 0.75f, false) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, EnderChestSnapshot> eldest) {
-                return size() > plugin.getConfigHandler().getConfig().inventoryShowcase.inventoryCacheMaxSize;
+                return size() > plugin.getConfigHandler().getConfig().enderChestShowcase.enderChestCacheMaxSize;
             }
         }
     );
@@ -55,11 +55,12 @@ public class InventoryManager implements Reloadable {
         cleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             long now = System.currentTimeMillis();
             long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
+            long enderTtlMs = plugin.getConfigHandler().getConfig().enderChestShowcase.enderChestSnapshotTtlSeconds * 1000L;
             synchronized (cache) {
                 cache.values().removeIf(snapshot -> now - snapshot.timestamp() > ttlMs);
             }
             synchronized (enderCache) {
-                enderCache.values().removeIf(snapshot -> now - snapshot.timestamp() > ttlMs);
+                enderCache.values().removeIf(snapshot -> now - snapshot.timestamp() > enderTtlMs);
             }
         }, 600L, 600L);
     }
@@ -239,7 +240,7 @@ public class InventoryManager implements Reloadable {
      */
     public boolean openEnderChest(Player viewer, String token) {
         EnderChestSnapshot snapshot = enderCache.get(token);
-        long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
+        long ttlMs = plugin.getConfigHandler().getConfig().enderChestShowcase.enderChestSnapshotTtlSeconds * 1000L;
         if (snapshot == null || System.currentTimeMillis() - snapshot.timestamp() > ttlMs) {
             if (snapshot != null) {
                 enderCache.remove(token);

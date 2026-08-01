@@ -122,6 +122,8 @@ public class PluginConfig implements VersionedConfig {
         public boolean permissionRequired = true;
         public String permissionNode = "chatitem.showcase.enderchest";
         public String enderChestFormat = "<white>[<player_head><light_purple><player_name>'s Ender Chest</light_purple>]</white>";
+        public int enderChestSnapshotTtlSeconds = 300;
+        public int enderChestCacheMaxSize = 500;
     }
 
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
