@@ -62,7 +62,7 @@ public class ChatItem extends JavaPlugin {
         for (Reloadable handler : handlers) {
             handler.onEnable(this);
         }
-        getServer().getPluginManager().registerEvents(new io.github.lunatech.chatitem.inventory.InventoryListener(), this);
+        getServer().getPluginManager().registerEvents(new io.github.lunatech.chatitem.inventory.InventoryListener(this), this);
     }
 
     @Override
