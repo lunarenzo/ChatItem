@@ -59,6 +59,7 @@ public class LegacyChatListener implements Listener {
                         Placeholder.parsed("cooldown", String.valueOf(remainingSec))
                     ));
                 }
+                event.setCancelled(true);
                 return;
             }
         }

@@ -63,6 +63,7 @@ public class AsyncChatListener implements Listener {
                         Placeholder.parsed("cooldown", String.valueOf(remainingSec))
                     ));
                 }
+                event.setCancelled(true);
                 return;
             }
         }
