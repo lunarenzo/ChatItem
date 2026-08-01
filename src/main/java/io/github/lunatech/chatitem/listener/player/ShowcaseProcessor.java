@@ -25,17 +25,19 @@ public class ShowcaseProcessor {
         public final Component replacedMessage;
         public final Component itemReplacement;
         public final Component invReplacement;
+        public final Component enderReplacement;
 
-        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, Component invReplacement) {
+        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, Component invReplacement, Component enderReplacement) {
             this.replaced = replaced;
             this.replacedMessage = replacedMessage;
             this.itemReplacement = itemReplacement;
             this.invReplacement = invReplacement;
+            this.enderReplacement = enderReplacement;
         }
     }
 
     /**
-     * Scans and processes item and inventory showcases from a message Component.
+     * Scans and processes item, inventory, and ender chest showcases from a message Component.
      * Evaluates permission gates and executes thread-safe main-thread snapshots safely.
      *
      * @param plugin   the ChatItem plugin instance
@@ -49,33 +51,42 @@ public class ShowcaseProcessor {
 
         boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
         boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
+        boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
 
-        if (!hasItemMatch && !hasInvMatch) {
-            return new ProcessedResult(false, message, null, null);
+        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch) {
+            return new ProcessedResult(false, message, null, null, null);
         }
 
         PluginConfig config = plugin.getConfigHandler().getConfig();
         PluginConfig.ItemShowcase settings = config.itemShowcase;
         PluginConfig.InventoryShowcase invSettings = config.inventoryShowcase;
+        PluginConfig.EnderChestShowcase enderSettings = config.enderChestShowcase;
 
         boolean hasItemPermission = !settings.permissionRequired || player.hasPermission(settings.permissionNode);
         boolean hasInvPermission = !invSettings.permissionRequired || player.hasPermission(invSettings.permissionNode);
+        boolean hasEnderPermission = !enderSettings.permissionRequired || player.hasPermission(enderSettings.permissionNode);
 
-        // If matched but no permission for either, fail fast
-        if ((hasItemMatch && !hasItemPermission) && (hasInvMatch && !hasInvPermission)) {
-            return new ProcessedResult(false, message, null, null);
+        // If matched but no permission for any, fail fast
+        if ((hasItemMatch && !hasItemPermission) && 
+            (hasInvMatch && !hasInvPermission) && 
+            (hasEnderMatch && !hasEnderPermission)) {
+            return new ProcessedResult(false, message, null, null, null);
         }
 
-        // Fetch item in hand and inventory snapshot safely on the Main Tick Thread
+        // Fetch item in hand, inventory, and ender chest snapshot safely on the Main Tick Thread
         class ShowcaseDetails {
             final ItemStack itemStack;
             final HoverEvent<HoverEvent.ShowItem> itemHover;
             final io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap;
+            final io.github.lunatech.chatitem.inventory.EnderChestSnapshot enderSnap;
 
-            ShowcaseDetails(ItemStack itemStack, HoverEvent<HoverEvent.ShowItem> itemHover, io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap) {
+            ShowcaseDetails(ItemStack itemStack, HoverEvent<HoverEvent.ShowItem> itemHover, 
+                            io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap,
+                            io.github.lunatech.chatitem.inventory.EnderChestSnapshot enderSnap) {
                 this.itemStack = itemStack;
                 this.itemHover = itemHover;
                 this.invSnap = invSnap;
+                this.enderSnap = enderSnap;
             }
         }
 
@@ -96,7 +107,12 @@ public class ShowcaseProcessor {
                 snap = plugin.getInventoryManager().createSnapshot(player);
             }
 
-            future.complete(new ShowcaseDetails(inHand, inHandHover, snap));
+            io.github.lunatech.chatitem.inventory.EnderChestSnapshot eSnap = null;
+            if (hasEnderMatch && hasEnderPermission) {
+                eSnap = plugin.getInventoryManager().createEnderChestSnapshot(player);
+            }
+
+            future.complete(new ShowcaseDetails(inHand, inHandHover, snap, eSnap));
         });
 
         ShowcaseDetails details;
@@ -104,7 +120,7 @@ public class ShowcaseProcessor {
             details = future.get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
             plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
-            return new ProcessedResult(false, message, null, null);
+            return new ProcessedResult(false, message, null, null, null);
         }
 
         // Build replacements
@@ -194,6 +210,20 @@ public class ShowcaseProcessor {
                 .clickEvent(ClickEvent.runCommand("/chatitem viewinv " + token));
         }
 
+        Component enderReplacement = null;
+        if (details.enderSnap != null) {
+            String token = plugin.getInventoryManager().registerEnderChestSnapshot(details.enderSnap);
+            Component playerHead = plugin.getCustomIconsHandler().getPlayerFace(player);
+            enderReplacement = MiniMessage.miniMessage().deserialize(
+                enderSettings.enderChestFormat,
+                Placeholder.unparsed("player_name", player.getName()),
+                Placeholder.component("player_head", playerHead)
+            );
+            enderReplacement = enderReplacement
+                .hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(config.messages.enderHover)))
+                .clickEvent(ClickEvent.runCommand("/chatitem viewender " + token));
+        }
+
         // Replace text elements in message
         boolean replacedAny = false;
         Component finalMessage = message;
@@ -225,6 +255,15 @@ public class ShowcaseProcessor {
             replacedAny = true;
         }
 
-        return new ProcessedResult(replacedAny, finalMessage, itemReplacement, invReplacement);
+        if (enderReplacement != null) {
+            TextReplacementConfig enderConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[(echest|ender|enderchest)\\]"))
+                .replacement(enderReplacement)
+                .build();
+            finalMessage = finalMessage.replaceText(enderConfig);
+            replacedAny = true;
+        }
+
+        return new ProcessedResult(replacedAny, finalMessage, itemReplacement, invReplacement, enderReplacement);
     }
 }

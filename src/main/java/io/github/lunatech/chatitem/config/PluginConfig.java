@@ -109,6 +109,21 @@ public class PluginConfig implements VersionedConfig {
         public int inventoryCacheMaxSize = 500;
     }
 
+    @Comment("Ender Chest Showcase Settings\n" +
+             "------------------------------\n" +
+             "Allows players to showcase their ender chest contents in chat via '[echest]', '[ender]', or '[enderchest]'.\n" +
+             "Placeholders:\n" +
+             "  - <player_name>: The name of the player showcasing.\n" +
+             "  - <player_head>: The player's 2D skin face icon.")
+    public EnderChestShowcase enderChestShowcase = new EnderChestShowcase();
+
+    @ConfigSerializable
+    public static class EnderChestShowcase {
+        public boolean permissionRequired = true;
+        public String permissionNode = "chatitem.showcase.enderchest";
+        public String enderChestFormat = "<white>[<player_head><light_purple><player_name>'s Ender Chest</light_purple>]</white>";
+    }
+
     @Comment("Custom Messages (Adventure MiniMessage color tags supported)")
     public Messages messages = new Messages();
 
@@ -125,6 +140,12 @@ public class PluginConfig implements VersionedConfig {
 
         @Comment("Title of the showcase inventory GUI.")
         public String invTitle = "<dark_gray>{player}'s Inventory Snapshot";
+
+        @Comment("Hover text shown when hovering over the [echest]/[ender] chat tag.")
+        public String enderHover = "<gray>Click to view ender chest contents.";
+
+        @Comment("Title of the showcase ender chest GUI.")
+        public String enderTitle = "<dark_purple>{player}'s Ender Chest Snapshot";
     }
 
     @Comment("Cache Settings")

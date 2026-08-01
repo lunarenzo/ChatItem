@@ -32,6 +32,16 @@ public class InventoryManager implements Reloadable {
             }
         }
     );
+
+    // Thread-safe FIFO eviction cache for ender chests
+    private final Map<String, EnderChestSnapshot> enderCache = Collections.synchronizedMap(
+        new LinkedHashMap<String, EnderChestSnapshot>(16, 0.75f, false) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, EnderChestSnapshot> eldest) {
+                return size() > plugin.getConfigHandler().getConfig().inventoryShowcase.inventoryCacheMaxSize;
+            }
+        }
+    );
     
     private BukkitTask cleanupTask;
 
@@ -48,6 +58,9 @@ public class InventoryManager implements Reloadable {
             synchronized (cache) {
                 cache.values().removeIf(snapshot -> now - snapshot.timestamp() > ttlMs);
             }
+            synchronized (enderCache) {
+                enderCache.values().removeIf(snapshot -> now - snapshot.timestamp() > ttlMs);
+            }
         }, 600L, 600L);
     }
 
@@ -58,11 +71,13 @@ public class InventoryManager implements Reloadable {
             cleanupTask = null;
         }
         cache.clear();
+        enderCache.clear();
     }
 
     @Override
     public void onReload(ChatItem plugin) {
         cache.clear();
+        enderCache.clear();
     }
 
     /**
@@ -181,6 +196,63 @@ public class InventoryManager implements Reloadable {
         );
 
         Inventory inv = Bukkit.createInventory(new SnapshotInventoryHolder(snapshot), 54, titleComp);
+        inv.setContents(snapshot.items());
+        viewer.openInventory(inv);
+        return true;
+    }
+
+    /**
+     * Creates an immutable snapshot of a player's ender chest.
+     *
+     * @param player the player
+     * @return the created EnderChestSnapshot
+     */
+    public EnderChestSnapshot createEnderChestSnapshot(Player player) {
+        Inventory ender = player.getEnderChest();
+        int size = ender.getSize();
+        ItemStack[] items = new ItemStack[size];
+        for (int i = 0; i < size; i++) {
+            ItemStack item = ender.getItem(i);
+            items[i] = item != null && item.getType() != Material.AIR ? item.clone() : null;
+        }
+        return new EnderChestSnapshot(player.getName(), items, System.currentTimeMillis());
+    }
+
+    /**
+     * Registers an ender chest snapshot in the cache.
+     *
+     * @param snapshot the snapshot to cache
+     * @return the generated token
+     */
+    public String registerEnderChestSnapshot(EnderChestSnapshot snapshot) {
+        String token = Util.randomString(8);
+        enderCache.put(token, snapshot);
+        return token;
+    }
+
+    /**
+     * Opens the virtual ender chest preview for a player.
+     *
+     * @param viewer the player viewing the ender chest
+     * @param token  the snapshot token
+     * @return true if opened successfully, false if expired or invalid
+     */
+    public boolean openEnderChest(Player viewer, String token) {
+        EnderChestSnapshot snapshot = enderCache.get(token);
+        long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
+        if (snapshot == null || System.currentTimeMillis() - snapshot.timestamp() > ttlMs) {
+            if (snapshot != null) {
+                enderCache.remove(token);
+            }
+            return false;
+        }
+
+        String titleFormat = plugin.getConfigHandler().getConfig().messages.enderTitle;
+        Component titleComp = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
+            titleFormat.replace("{player}", snapshot.playerName())
+        );
+
+        Inventory inv = Bukkit.createInventory(new EnderChestInventoryHolder(snapshot), snapshot.items().length, titleComp);
         inv.setContents(snapshot.items());
         viewer.openInventory(inv);
         return true;

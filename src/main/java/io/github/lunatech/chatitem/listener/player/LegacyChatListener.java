@@ -32,8 +32,9 @@ public class LegacyChatListener implements Listener {
         String plainLower = message.toLowerCase();
         boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
         boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
+        boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
 
-        if (!hasItemMatch && !hasInvMatch) {
+        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch) {
             return;
         }
 

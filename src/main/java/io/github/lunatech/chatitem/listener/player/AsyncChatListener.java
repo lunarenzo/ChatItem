@@ -36,8 +36,9 @@ public class AsyncChatListener implements Listener {
 
         boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
         boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
+        boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
 
-        if (!hasItemMatch && !hasInvMatch) {
+        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch) {
             return;
         }
 
@@ -75,6 +76,7 @@ public class AsyncChatListener implements Listener {
 
         final Component finalItemRep = result.itemReplacement;
         final Component finalInvRep = result.invReplacement;
+        final Component finalEnderRep = result.enderReplacement;
 
         ChatRenderer originalRenderer = event.renderer();
         event.renderer((source, sourceDisplayName, msg, viewer) -> {
@@ -90,6 +92,12 @@ public class AsyncChatListener implements Listener {
                 newRendered = newRendered.replaceText(TextReplacementConfig.builder()
                     .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
                     .replacement(finalInvRep)
+                    .build());
+            }
+            if (finalEnderRep != null) {
+                newRendered = newRendered.replaceText(TextReplacementConfig.builder()
+                    .match(Pattern.compile("(?i)\\[(echest|ender|enderchest)\\]"))
+                    .replacement(finalEnderRep)
                     .build());
             }
             return newRendered;
