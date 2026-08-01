@@ -66,6 +66,11 @@ public class LegacyChatListener implements Listener {
         // 3. Delegate processing
         Component messageComponent = LegacyComponentSerializer.legacySection().deserialize(message);
         ShowcaseProcessor.ProcessedResult result = ShowcaseProcessor.processShowcase(plugin, player, messageComponent);
+        if (result.error) {
+            player.sendMessage(result.errorMessage);
+            event.setCancelled(true);
+            return;
+        }
         if (!result.replaced) {
             return;
         }

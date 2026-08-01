@@ -69,6 +69,11 @@ public class AsyncChatListener implements Listener {
 
         // 3. Delegate processing
         ShowcaseProcessor.ProcessedResult result = ShowcaseProcessor.processShowcase(plugin, player, message);
+        if (result.error) {
+            player.sendMessage(result.errorMessage);
+            event.setCancelled(true);
+            return;
+        }
         if (!result.replaced) {
             return;
         }

@@ -31,15 +31,25 @@ public class ShowcaseProcessor {
         public final Component invReplacement;
         public final Component enderReplacement;
         public final Component shulkerReplacement;
+        public final boolean error;
+        public final Component errorMessage;
 
         public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, 
                                Component invReplacement, Component enderReplacement, Component shulkerReplacement) {
+            this(replaced, replacedMessage, itemReplacement, invReplacement, enderReplacement, shulkerReplacement, false, null);
+        }
+
+        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, 
+                               Component invReplacement, Component enderReplacement, Component shulkerReplacement,
+                               boolean error, Component errorMessage) {
             this.replaced = replaced;
             this.replacedMessage = replacedMessage;
             this.itemReplacement = itemReplacement;
             this.invReplacement = invReplacement;
             this.enderReplacement = enderReplacement;
             this.shulkerReplacement = shulkerReplacement;
+            this.error = error;
+            this.errorMessage = errorMessage;
         }
     }
 
@@ -140,6 +150,12 @@ public class ShowcaseProcessor {
         } catch (Exception e) {
             plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
             return new ProcessedResult(false, message, null, null, null, null);
+        }
+
+        // If player typed [shulker] specifically but is not holding a shulker box, return error state privately
+        if (hasShulkerMatch && hasShulkerPermission && details.shulkerSnap == null) {
+            return new ProcessedResult(false, message, null, null, null, null, true,
+                MiniMessage.miniMessage().deserialize(config.messages.noShulkerHeld));
         }
 
         // Build replacements
@@ -250,8 +266,6 @@ public class ShowcaseProcessor {
                 itemReplacement = itemReplacement.clickEvent(ClickEvent.runCommand("/chatitem viewshulker " + token));
             }
             shulkerReplacement = itemReplacement;
-        } else if (hasShulkerMatch && hasShulkerPermission) {
-            shulkerReplacement = MiniMessage.miniMessage().deserialize(config.messages.noShulkerHeld);
         }
 
         // Replace text elements in message
