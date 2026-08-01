@@ -85,6 +85,12 @@ public class PluginConfig implements VersionedConfig {
 
         @Comment("The MiniMessage format for the item icon. Use {atlas} and {sprite} for placeholders.")
         public String iconFormat = "<sprite:\"{atlas}\":\"{sprite}\"> ";
+
+        @Comment("Should the player be allowed to showcase their shulker boxes?")
+        public boolean shulkerPermissionRequired = true;
+        public String shulkerPermissionNode = "chatitem.showcase.shulker";
+        public int shulkerSnapshotTtlSeconds = 300;
+        public int shulkerCacheMaxSize = 500;
     }
 
     @Comment("Inventory Showcase Settings\n" +
@@ -148,6 +154,12 @@ public class PluginConfig implements VersionedConfig {
 
         @Comment("Title of the showcase ender chest GUI.")
         public String enderTitle = "<dark_purple>{player}'s Ender Chest Snapshot";
+
+        @Comment("Title of the showcase shulker box GUI.")
+        public String shulkerTitle = "<light_purple>{player}'s Shulker Box Snapshot";
+
+        @Comment("Message sent when a player attempts [shulker] without holding a shulker box.")
+        public String noShulkerHeld = "<red>You must be holding a shulker box in your main hand.";
     }
 
     @Comment("Cache Settings")

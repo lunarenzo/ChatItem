@@ -10,7 +10,8 @@ public class InventoryListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getInventory().getHolder() instanceof SnapshotInventoryHolder ||
-            event.getInventory().getHolder() instanceof EnderChestInventoryHolder) {
+            event.getInventory().getHolder() instanceof EnderChestInventoryHolder ||
+            event.getInventory().getHolder() instanceof ShulkerInventoryHolder) {
             event.setCancelled(true);
         }
     }
@@ -18,7 +19,8 @@ public class InventoryListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryDrag(InventoryDragEvent event) {
         if (event.getInventory().getHolder() instanceof SnapshotInventoryHolder ||
-            event.getInventory().getHolder() instanceof EnderChestInventoryHolder) {
+            event.getInventory().getHolder() instanceof EnderChestInventoryHolder ||
+            event.getInventory().getHolder() instanceof ShulkerInventoryHolder) {
             event.setCancelled(true);
         }
     }

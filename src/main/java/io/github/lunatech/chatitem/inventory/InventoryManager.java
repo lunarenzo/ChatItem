@@ -42,6 +42,16 @@ public class InventoryManager implements Reloadable {
             }
         }
     );
+
+    // Thread-safe FIFO eviction cache for shulker boxes
+    private final Map<String, ShulkerSnapshot> shulkerCache = Collections.synchronizedMap(
+        new LinkedHashMap<String, ShulkerSnapshot>(16, 0.75f, false) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, ShulkerSnapshot> eldest) {
+                return size() > plugin.getConfigHandler().getConfig().itemShowcase.shulkerCacheMaxSize;
+            }
+        }
+    );
     
     private BukkitTask cleanupTask;
 
@@ -56,11 +66,15 @@ public class InventoryManager implements Reloadable {
             long now = System.currentTimeMillis();
             long ttlMs = plugin.getConfigHandler().getConfig().inventoryShowcase.inventorySnapshotTtlSeconds * 1000L;
             long enderTtlMs = plugin.getConfigHandler().getConfig().enderChestShowcase.enderChestSnapshotTtlSeconds * 1000L;
+            long shulkerTtlMs = plugin.getConfigHandler().getConfig().itemShowcase.shulkerSnapshotTtlSeconds * 1000L;
             synchronized (cache) {
                 cache.values().removeIf(snapshot -> now - snapshot.timestamp() > ttlMs);
             }
             synchronized (enderCache) {
                 enderCache.values().removeIf(snapshot -> now - snapshot.timestamp() > enderTtlMs);
+            }
+            synchronized (shulkerCache) {
+                shulkerCache.values().removeIf(snapshot -> now - snapshot.timestamp() > shulkerTtlMs);
             }
         }, 600L, 600L);
     }
@@ -73,12 +87,14 @@ public class InventoryManager implements Reloadable {
         }
         cache.clear();
         enderCache.clear();
+        shulkerCache.clear();
     }
 
     @Override
     public void onReload(ChatItem plugin) {
         cache.clear();
         enderCache.clear();
+        shulkerCache.clear();
     }
 
     /**
@@ -255,6 +271,82 @@ public class InventoryManager implements Reloadable {
 
         Inventory inv = Bukkit.createInventory(new EnderChestInventoryHolder(snapshot), snapshot.items().length, titleComp);
         inv.setContents(snapshot.items());
+        viewer.openInventory(inv);
+        return true;
+    }
+
+    /**
+     * Creates an immutable snapshot of a player's shulker box container items.
+     *
+     * @param player      the player
+     * @param shulkerItem the shulker box itemstack
+     * @return the created ShulkerSnapshot
+     */
+    public ShulkerSnapshot createShulkerSnapshot(Player player, ItemStack shulkerItem) {
+        ItemStack[] items = new ItemStack[27];
+        if (shulkerItem.getItemMeta() instanceof org.bukkit.inventory.meta.BlockStateMeta bsm) {
+            if (bsm.getBlockState() instanceof org.bukkit.block.ShulkerBox shulkerBox) {
+                Inventory container = shulkerBox.getInventory();
+                for (int i = 0; i < 27; i++) {
+                    ItemStack item = container.getItem(i);
+                    items[i] = item != null && item.getType() != Material.AIR ? item.clone() : null;
+                }
+            }
+        }
+        return new ShulkerSnapshot(player.getName(), shulkerItem.clone(), items, System.currentTimeMillis());
+    }
+
+    /**
+     * Registers a shulker snapshot in the cache.
+     *
+     * @param snapshot the snapshot to cache
+     * @return the generated token
+     */
+    public String registerShulkerSnapshot(ShulkerSnapshot snapshot) {
+        String token = Util.randomString(8);
+        shulkerCache.put(token, snapshot);
+        return token;
+    }
+
+    /**
+     * Opens the virtual shulker box preview for a player.
+     *
+     * @param viewer the player viewing the shulker
+     * @param token  the snapshot token
+     * @return true if opened successfully, false if expired or invalid
+     */
+    public boolean openShulker(Player viewer, String token) {
+        ShulkerSnapshot snapshot = shulkerCache.get(token);
+        long ttlMs = plugin.getConfigHandler().getConfig().itemShowcase.shulkerSnapshotTtlSeconds * 1000L;
+        if (snapshot == null || System.currentTimeMillis() - snapshot.timestamp() > ttlMs) {
+            if (snapshot != null) {
+                shulkerCache.remove(token);
+            }
+            return false;
+        }
+
+        String titleFormat = plugin.getConfigHandler().getConfig().messages.shulkerTitle;
+        Component titleComp = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
+            titleFormat.replace("{player}", snapshot.playerName())
+        );
+
+        Inventory inv = Bukkit.createInventory(new ShulkerInventoryHolder(snapshot), 36, titleComp);
+        
+        ItemStack[] contents = new ItemStack[36];
+        ItemStack pane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta paneMeta = pane.getItemMeta();
+        if (paneMeta != null) {
+            paneMeta.displayName(Component.empty());
+            pane.setItemMeta(paneMeta);
+        }
+        for (int i = 0; i < 9; i++) {
+            contents[i] = pane;
+        }
+        contents[4] = snapshot.shulkerItem(); // Place shulker item itself in slot 4
+        
+        System.arraycopy(snapshot.items(), 0, contents, 9, 27);
+        
+        inv.setContents(contents);
         viewer.openInventory(inv);
         return true;
     }

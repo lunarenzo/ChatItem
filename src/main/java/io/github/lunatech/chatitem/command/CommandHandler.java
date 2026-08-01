@@ -126,6 +126,27 @@ public class CommandHandler implements Reloadable {
                 )
             );
 
+            // Subcommand: viewshulker <token> (opens read-only GUI view of cached shulker snapshot)
+            builder.then(Commands.literal("viewshulker")
+                .then(Commands.argument("token", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .executes(ctx -> {
+                        CommandSender sender = ctx.getSource().getSender();
+                        if (!(sender instanceof Player player)) {
+                            sender.sendMessage(Component.text("This command can only be executed by a player.", NamedTextColor.RED));
+                            return Command.SINGLE_SUCCESS;
+                        }
+
+                        String token = ctx.getArgument("token", String.class);
+                        boolean success = plugin.getInventoryManager().openShulker(player, token);
+                        if (!success) {
+                            player.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage()
+                                .deserialize(plugin.getConfigHandler().getConfig().messages.expired));
+                        }
+                        return Command.SINGLE_SUCCESS;
+                    })
+                )
+            );
+
             LiteralCommandNode<CommandSourceStack> node = builder.build();
             commands.registrar().register(node, "Main command for ChatItem", List.of("ci"));
         });

@@ -2,6 +2,9 @@ package io.github.lunatech.chatitem.listener.player;
 
 import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.config.PluginConfig;
+import io.github.lunatech.chatitem.inventory.EnderChestSnapshot;
+import io.github.lunatech.chatitem.inventory.InventorySnapshot;
+import io.github.lunatech.chatitem.inventory.ShulkerSnapshot;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -10,6 +13,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -26,18 +30,21 @@ public class ShowcaseProcessor {
         public final Component itemReplacement;
         public final Component invReplacement;
         public final Component enderReplacement;
+        public final Component shulkerReplacement;
 
-        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, Component invReplacement, Component enderReplacement) {
+        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, 
+                               Component invReplacement, Component enderReplacement, Component shulkerReplacement) {
             this.replaced = replaced;
             this.replacedMessage = replacedMessage;
             this.itemReplacement = itemReplacement;
             this.invReplacement = invReplacement;
             this.enderReplacement = enderReplacement;
+            this.shulkerReplacement = shulkerReplacement;
         }
     }
 
     /**
-     * Scans and processes item, inventory, and ender chest showcases from a message Component.
+     * Scans and processes item, inventory, ender chest, and shulker showcases from a message Component.
      * Evaluates permission gates and executes thread-safe main-thread snapshots safely.
      *
      * @param plugin   the ChatItem plugin instance
@@ -52,9 +59,10 @@ public class ShowcaseProcessor {
         boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
         boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
         boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
+        boolean hasShulkerMatch = plainLower.contains("[shulker]");
 
-        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch) {
-            return new ProcessedResult(false, message, null, null, null);
+        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch && !hasShulkerMatch) {
+            return new ProcessedResult(false, message, null, null, null, null);
         }
 
         PluginConfig config = plugin.getConfigHandler().getConfig();
@@ -65,28 +73,31 @@ public class ShowcaseProcessor {
         boolean hasItemPermission = !settings.permissionRequired || player.hasPermission(settings.permissionNode);
         boolean hasInvPermission = !invSettings.permissionRequired || player.hasPermission(invSettings.permissionNode);
         boolean hasEnderPermission = !enderSettings.permissionRequired || player.hasPermission(enderSettings.permissionNode);
+        boolean hasShulkerPermission = !settings.shulkerPermissionRequired || player.hasPermission(settings.shulkerPermissionNode);
 
         // If matched but no permission for any, fail fast
         if ((hasItemMatch && !hasItemPermission) && 
             (hasInvMatch && !hasInvPermission) && 
-            (hasEnderMatch && !hasEnderPermission)) {
-            return new ProcessedResult(false, message, null, null, null);
+            (hasEnderMatch && !hasEnderPermission) &&
+            (hasShulkerMatch && !hasShulkerPermission)) {
+            return new ProcessedResult(false, message, null, null, null, null);
         }
 
         // Fetch item in hand, inventory, and ender chest snapshot safely on the Main Tick Thread
         class ShowcaseDetails {
             final ItemStack itemStack;
             final HoverEvent<HoverEvent.ShowItem> itemHover;
-            final io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap;
-            final io.github.lunatech.chatitem.inventory.EnderChestSnapshot enderSnap;
+            final InventorySnapshot invSnap;
+            final EnderChestSnapshot enderSnap;
+            final ShulkerSnapshot shulkerSnap;
 
             ShowcaseDetails(ItemStack itemStack, HoverEvent<HoverEvent.ShowItem> itemHover, 
-                            io.github.lunatech.chatitem.inventory.InventorySnapshot invSnap,
-                            io.github.lunatech.chatitem.inventory.EnderChestSnapshot enderSnap) {
+                            InventorySnapshot invSnap, EnderChestSnapshot enderSnap, ShulkerSnapshot shulkerSnap) {
                 this.itemStack = itemStack;
                 this.itemHover = itemHover;
                 this.invSnap = invSnap;
                 this.enderSnap = enderSnap;
+                this.shulkerSnap = shulkerSnap;
             }
         }
 
@@ -94,25 +105,33 @@ public class ShowcaseProcessor {
         Bukkit.getScheduler().runTask(plugin, () -> {
             ItemStack inHand = null;
             HoverEvent<HoverEvent.ShowItem> inHandHover = null;
-            if (hasItemMatch && hasItemPermission) {
-                ItemStack item = player.getInventory().getItemInMainHand();
+            ShulkerSnapshot sSnap = null;
+
+            ItemStack item = player.getInventory().getItemInMainHand();
+            boolean isHoldingShulker = item != null && !item.getType().isAir() && item.getType().name().endsWith("SHULKER_BOX");
+
+            if ((hasItemMatch && hasItemPermission) || (hasShulkerMatch && hasShulkerPermission)) {
                 if (item != null && !item.getType().isAir()) {
                     inHand = item.clone();
                     inHandHover = inHand.asHoverEvent();
+                    
+                    if (isHoldingShulker && ((hasItemMatch && hasItemPermission && (!settings.shulkerPermissionRequired || player.hasPermission(settings.shulkerPermissionNode))) || (hasShulkerMatch && hasShulkerPermission))) {
+                        sSnap = plugin.getInventoryManager().createShulkerSnapshot(player, inHand);
+                    }
                 }
             }
 
-            io.github.lunatech.chatitem.inventory.InventorySnapshot snap = null;
+            InventorySnapshot snap = null;
             if (hasInvMatch && hasInvPermission) {
                 snap = plugin.getInventoryManager().createSnapshot(player);
             }
 
-            io.github.lunatech.chatitem.inventory.EnderChestSnapshot eSnap = null;
+            EnderChestSnapshot eSnap = null;
             if (hasEnderMatch && hasEnderPermission) {
                 eSnap = plugin.getInventoryManager().createEnderChestSnapshot(player);
             }
 
-            future.complete(new ShowcaseDetails(inHand, inHandHover, snap, eSnap));
+            future.complete(new ShowcaseDetails(inHand, inHandHover, snap, eSnap, sSnap));
         });
 
         ShowcaseDetails details;
@@ -120,7 +139,7 @@ public class ShowcaseProcessor {
             details = future.get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
             plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
-            return new ProcessedResult(false, message, null, null, null);
+            return new ProcessedResult(false, message, null, null, null, null);
         }
 
         // Build replacements
@@ -147,12 +166,12 @@ public class ShowcaseProcessor {
             }
 
             if (settings.showIcon && !plugin.getExcludedIconsHandler().isExcluded(itemStack.getType())) {
-                org.bukkit.Material material = itemStack.getType();
-                if (material == org.bukkit.Material.ENCHANTED_GOLDEN_APPLE) {
-                    material = org.bukkit.Material.GOLDEN_APPLE;
+                Material material = itemStack.getType();
+                if (material == Material.ENCHANTED_GOLDEN_APPLE) {
+                    material = Material.GOLDEN_APPLE;
                 }
                 Component iconComponent = plugin.getCustomIconsHandler().getOverride(material, player);
-                if (iconComponent == null && material == org.bukkit.Material.PLAYER_HEAD) {
+                if (iconComponent == null && material == Material.PLAYER_HEAD) {
                     iconComponent = plugin.getCustomIconsHandler().resolveSkullComponent(itemStack);
                 }
                 if (iconComponent == null) {
@@ -224,6 +243,17 @@ public class ShowcaseProcessor {
                 .clickEvent(ClickEvent.runCommand("/chatitem viewender " + token));
         }
 
+        Component shulkerReplacement = null;
+        if (details.shulkerSnap != null) {
+            String token = plugin.getInventoryManager().registerShulkerSnapshot(details.shulkerSnap);
+            if (itemReplacement != null) {
+                itemReplacement = itemReplacement.clickEvent(ClickEvent.runCommand("/chatitem viewshulker " + token));
+            }
+            shulkerReplacement = itemReplacement;
+        } else if (hasShulkerMatch && hasShulkerPermission) {
+            shulkerReplacement = MiniMessage.miniMessage().deserialize(config.messages.noShulkerHeld);
+        }
+
         // Replace text elements in message
         boolean replacedAny = false;
         Component finalMessage = message;
@@ -264,6 +294,15 @@ public class ShowcaseProcessor {
             replacedAny = true;
         }
 
-        return new ProcessedResult(replacedAny, finalMessage, itemReplacement, invReplacement, enderReplacement);
+        if (shulkerReplacement != null) {
+            TextReplacementConfig shulkerConfig = TextReplacementConfig.builder()
+                .match(Pattern.compile("(?i)\\[shulker\\]"))
+                .replacement(shulkerReplacement)
+                .build();
+            finalMessage = finalMessage.replaceText(shulkerConfig);
+            replacedAny = true;
+        }
+
+        return new ProcessedResult(replacedAny, finalMessage, itemReplacement, invReplacement, enderReplacement, shulkerReplacement);
     }
 }
