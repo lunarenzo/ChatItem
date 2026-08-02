@@ -373,20 +373,20 @@ public class ShowcaseProcessor {
             String parsedText = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
                 ? me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, cp.displayFormat)
                 : cp.displayFormat;
-            Component rep = MiniMessage.miniMessage().deserialize(parsedText);
+            Component rep = MiniMessage.miniMessage().deserialize(translateLegacyToMiniMessage(parsedText));
 
             if (cp.hoverFormat != null && !cp.hoverFormat.isEmpty()) {
                 String parsedHover = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
                     ? me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, cp.hoverFormat)
                     : cp.hoverFormat;
-                rep = rep.hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(parsedHover)));
+                rep = rep.hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(translateLegacyToMiniMessage(parsedHover))));
             }
 
             if (cp.clickCommand != null && !cp.clickCommand.isEmpty()) {
                 String parsedClick = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
                     ? me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, cp.clickCommand)
                     : cp.clickCommand;
-                rep = rep.clickEvent(ClickEvent.runCommand(parsedClick));
+                rep = rep.clickEvent(ClickEvent.runCommand(translateLegacyToMiniMessage(parsedClick)));
             }
 
             for (String tag : cp.tags) {
@@ -408,5 +408,52 @@ public class ShowcaseProcessor {
         }
 
         return new ProcessedResult(replacedAny, finalMessage, replacements);
+    }
+
+    private static String translateLegacyToMiniMessage(String input) {
+        if (input == null || !input.contains("§")) {
+            return input;
+        }
+        StringBuilder sb = new StringBuilder(input.length() + 32);
+        char[] chars = input.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            if (chars[i] == '§' && i + 1 < chars.length) {
+                char code = Character.toLowerCase(chars[i + 1]);
+                String tag = switch (code) {
+                    case '0' -> "<black>";
+                    case '1' -> "<dark_blue>";
+                    case '2' -> "<dark_green>";
+                    case '3' -> "<dark_aqua>";
+                    case '4' -> "<dark_red>";
+                    case '5' -> "<dark_purple>";
+                    case '6' -> "<gold>";
+                    case '7' -> "<gray>";
+                    case '8' -> "<dark_gray>";
+                    case '9' -> "<blue>";
+                    case 'a' -> "<green>";
+                    case 'b' -> "<aqua>";
+                    case 'c' -> "<red>";
+                    case 'd' -> "<light_purple>";
+                    case 'e' -> "<yellow>";
+                    case 'f' -> "<white>";
+                    case 'k' -> "<obfuscated>";
+                    case 'l' -> "<bold>";
+                    case 'm' -> "<strikethrough>";
+                    case 'n' -> "<underlined>";
+                    case 'o' -> "<italic>";
+                    case 'r' -> "<reset>";
+                    default -> null;
+                };
+                if (tag != null) {
+                    sb.append(tag);
+                    i++;
+                } else {
+                    sb.append('§');
+                }
+            } else {
+                sb.append(chars[i]);
+            }
+        }
+        return sb.toString();
     }
 }
