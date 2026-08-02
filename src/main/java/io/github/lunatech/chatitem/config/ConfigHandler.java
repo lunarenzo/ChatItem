@@ -36,12 +36,23 @@ public class ConfigHandler implements Reloadable {
 
     @Override
     public void onLoad(ChatItem plugin) {
-        cfg = new ConfigLoader()
+        PluginConfig loaded = new ConfigLoader()
             .withLogger(logger)
             .withDirectory()
             .withPath(configDir.resolve("config.yml"))
             .withHeader("")
             .build(PluginConfig.class);
+
+        if (loaded != null) {
+            cfg = loaded;
+        } else {
+            if (cfg == null) {
+                cfg = new PluginConfig();
+                logger.error("Failed to load configuration at startup. Using default fallback configuration.");
+            } else {
+                logger.error("Failed to reload configuration. Keeping the previous active configuration in memory.");
+            }
+        }
     }
 
     @Override
