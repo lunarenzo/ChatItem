@@ -29,13 +29,7 @@ public class LegacyChatListener implements Listener {
         String message = event.getMessage();
 
         // 1. Fast text check
-        String plainLower = message.toLowerCase();
-        boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
-        boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
-        boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
-        boolean hasShulkerMatch = plainLower.contains("[shulker]");
-
-        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch && !hasShulkerMatch) {
+        if (!ShowcaseProcessor.hasShowcaseTag(plugin, message)) {
             return;
         }
 

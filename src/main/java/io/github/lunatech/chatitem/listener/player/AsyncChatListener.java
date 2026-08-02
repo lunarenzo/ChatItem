@@ -16,7 +16,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 public class AsyncChatListener implements Listener {
     private final ChatItem plugin;
@@ -32,14 +31,7 @@ public class AsyncChatListener implements Listener {
 
         // 1. Fast O(1) text check before doing full parser operations
         String plainText = PlainTextComponentSerializer.plainText().serialize(message);
-        String plainLower = plainText.toLowerCase();
-
-        boolean hasItemMatch = plainLower.contains("[item]") || plainLower.contains("[i]");
-        boolean hasInvMatch = plainLower.contains("[inventory]") || plainLower.contains("[inv]");
-        boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
-        boolean hasShulkerMatch = plainLower.contains("[shulker]");
-
-        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch && !hasShulkerMatch) {
+        if (!ShowcaseProcessor.hasShowcaseTag(plugin, plainText)) {
             return;
         }
 
@@ -81,37 +73,14 @@ public class AsyncChatListener implements Listener {
 
         event.message(result.replacedMessage);
 
-        final Component finalItemRep = result.itemReplacement;
-        final Component finalInvRep = result.invReplacement;
-        final Component finalEnderRep = result.enderReplacement;
-        final Component finalShulkerRep = result.shulkerReplacement;
-
         ChatRenderer originalRenderer = event.renderer();
         event.renderer((source, sourceDisplayName, msg, viewer) -> {
             Component rendered = originalRenderer.render(source, sourceDisplayName, msg, viewer);
             Component newRendered = rendered;
-            if (finalItemRep != null) {
+            for (ShowcaseProcessor.ReplacementInstruction ri : result.replacements) {
                 newRendered = newRendered.replaceText(TextReplacementConfig.builder()
-                    .match(Pattern.compile("(?i)\\[(item|i)\\]"))
-                    .replacement(finalItemRep)
-                    .build());
-            }
-            if (finalInvRep != null) {
-                newRendered = newRendered.replaceText(TextReplacementConfig.builder()
-                    .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
-                    .replacement(finalInvRep)
-                    .build());
-            }
-            if (finalEnderRep != null) {
-                newRendered = newRendered.replaceText(TextReplacementConfig.builder()
-                    .match(Pattern.compile("(?i)\\[(echest|ender|enderchest)\\]"))
-                    .replacement(finalEnderRep)
-                    .build());
-            }
-            if (finalShulkerRep != null) {
-                newRendered = newRendered.replaceText(TextReplacementConfig.builder()
-                    .match(Pattern.compile("(?i)\\[shulker\\]"))
-                    .replacement(finalShulkerRep)
+                    .match(ri.pattern)
+                    .replacement(ri.replacement)
                     .build());
             }
             return newRendered;

@@ -18,43 +18,77 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public class ShowcaseProcessor {
 
+    public static class ReplacementInstruction {
+        public final Pattern pattern;
+        public final Component replacement;
+
+        public ReplacementInstruction(Pattern pattern, Component replacement) {
+            this.pattern = pattern;
+            this.replacement = replacement;
+        }
+    }
+
     public static class ProcessedResult {
         public final boolean replaced;
         public final Component replacedMessage;
-        public final Component itemReplacement;
-        public final Component invReplacement;
-        public final Component enderReplacement;
-        public final Component shulkerReplacement;
+        public final List<ReplacementInstruction> replacements;
         public final boolean error;
         public final Component errorMessage;
 
-        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, 
-                               Component invReplacement, Component enderReplacement, Component shulkerReplacement) {
-            this(replaced, replacedMessage, itemReplacement, invReplacement, enderReplacement, shulkerReplacement, false, null);
+        public ProcessedResult(boolean replaced, Component replacedMessage, List<ReplacementInstruction> replacements) {
+            this(replaced, replacedMessage, replacements, false, null);
         }
 
-        public ProcessedResult(boolean replaced, Component replacedMessage, Component itemReplacement, 
-                               Component invReplacement, Component enderReplacement, Component shulkerReplacement,
+        public ProcessedResult(boolean replaced, Component replacedMessage, List<ReplacementInstruction> replacements,
                                boolean error, Component errorMessage) {
             this.replaced = replaced;
             this.replacedMessage = replacedMessage;
-            this.itemReplacement = itemReplacement;
-            this.invReplacement = invReplacement;
-            this.enderReplacement = enderReplacement;
-            this.shulkerReplacement = shulkerReplacement;
+            this.replacements = replacements;
             this.error = error;
             this.errorMessage = errorMessage;
         }
     }
 
     /**
-     * Scans and processes item, inventory, ender chest, and shulker showcases from a message Component.
+     * Fast check to see if a plain text message contains any built-in or custom showcase tags.
+     *
+     * @param plugin the plugin instance
+     * @param plainText the plain text message
+     * @return true if there is a match
+     */
+    public static boolean hasShowcaseTag(ChatItem plugin, String plainText) {
+        String lower = plainText.toLowerCase();
+        if (lower.contains("[item]") || lower.contains("[i]") ||
+            lower.contains("[inventory]") || lower.contains("[inv]") ||
+            lower.contains("[echest]") || lower.contains("[ender]") || lower.contains("[enderchest]") ||
+            lower.contains("[shulker]")) {
+            return true;
+        }
+        PluginConfig config = plugin.getConfigHandler().getConfig();
+        if (config.customPlaceholders != null) {
+            for (PluginConfig.CustomPlaceholder cp : config.customPlaceholders.values()) {
+                if (cp.tags != null) {
+                    for (String tag : cp.tags) {
+                        if (lower.contains(tag.toLowerCase())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Scans and processes item, inventory, ender chest, and custom showcases from a message Component.
      * Evaluates permission gates and executes thread-safe main-thread snapshots safely.
      *
      * @param plugin   the ChatItem plugin instance
@@ -71,10 +105,6 @@ public class ShowcaseProcessor {
         boolean hasEnderMatch = plainLower.contains("[echest]") || plainLower.contains("[ender]") || plainLower.contains("[enderchest]");
         boolean hasShulkerMatch = plainLower.contains("[shulker]");
 
-        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch && !hasShulkerMatch) {
-            return new ProcessedResult(false, message, null, null, null, null);
-        }
-
         PluginConfig config = plugin.getConfigHandler().getConfig();
         PluginConfig.ItemShowcase settings = config.itemShowcase;
         PluginConfig.InventoryShowcase invSettings = config.inventoryShowcase;
@@ -85,12 +115,39 @@ public class ShowcaseProcessor {
         boolean hasEnderPermission = !enderSettings.permissionRequired || player.hasPermission(enderSettings.permissionNode);
         boolean hasShulkerPermission = !settings.shulkerPermissionRequired || player.hasPermission(settings.shulkerPermissionNode);
 
+        // Check for custom placeholder matches and permissions
+        boolean hasCustomMatch = false;
+        List<PluginConfig.CustomPlaceholder> matchedCustoms = new ArrayList<>();
+        if (config.customPlaceholders != null) {
+            for (PluginConfig.CustomPlaceholder cp : config.customPlaceholders.values()) {
+                boolean hasPermission = cp.permissionNode == null || cp.permissionNode.isEmpty() || player.hasPermission(cp.permissionNode);
+                if (!hasPermission) continue;
+
+                boolean matched = false;
+                for (String tag : cp.tags) {
+                    if (plainLower.contains(tag.toLowerCase())) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) {
+                    hasCustomMatch = true;
+                    matchedCustoms.add(cp);
+                }
+            }
+        }
+
+        if (!hasItemMatch && !hasInvMatch && !hasEnderMatch && !hasShulkerMatch && !hasCustomMatch) {
+            return new ProcessedResult(false, message, new ArrayList<>());
+        }
+
         // If matched but no permission for any, fail fast
         if ((hasItemMatch && !hasItemPermission) && 
             (hasInvMatch && !hasInvPermission) && 
             (hasEnderMatch && !hasEnderPermission) &&
-            (hasShulkerMatch && !hasShulkerPermission)) {
-            return new ProcessedResult(false, message, null, null, null, null);
+            (hasShulkerMatch && !hasShulkerPermission) &&
+            matchedCustoms.isEmpty()) {
+            return new ProcessedResult(false, message, new ArrayList<>());
         }
 
         // Fetch item in hand, inventory, and ender chest snapshot safely on the Main Tick Thread
@@ -149,14 +206,17 @@ public class ShowcaseProcessor {
             details = future.get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
             plugin.getComponentLogger().warn("Failed to fetch showcase details for player " + player.getName(), e);
-            return new ProcessedResult(false, message, null, null, null, null);
+            return new ProcessedResult(false, message, new ArrayList<>());
         }
 
         // If player typed [shulker] specifically but is not holding a shulker box, return error state privately
         if (hasShulkerMatch && hasShulkerPermission && details.shulkerSnap == null) {
-            return new ProcessedResult(false, message, null, null, null, null, true,
+            return new ProcessedResult(false, message, new ArrayList<>(), true,
                 MiniMessage.miniMessage().deserialize(config.messages.noShulkerHeld));
         }
+
+        List<ReplacementInstruction> replacements = new ArrayList<>();
+        boolean replacedAny = false;
 
         // Build replacements
         Component itemReplacement = null;
@@ -268,55 +328,85 @@ public class ShowcaseProcessor {
             shulkerReplacement = itemReplacement;
         }
 
-        // Replace text elements in message
-        boolean replacedAny = false;
-        Component finalMessage = message;
-
+        // Add built-in replacements
         if (details.itemStack != null) {
-            TextReplacementConfig itemConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[(item|i)\\]"))
-                .replacement(itemReplacement)
-                .build();
-            finalMessage = finalMessage.replaceText(itemConfig);
+            replacements.add(new ReplacementInstruction(
+                Pattern.compile("(?i)\\[(item|i)\\]"),
+                itemReplacement
+            ));
             replacedAny = true;
         } else if (hasItemMatch && hasItemPermission) {
             Component emptyReplacement = MiniMessage.miniMessage().deserialize(settings.emptyHandFormat);
-            TextReplacementConfig itemConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[(item|i)\\]"))
-                .replacement(emptyReplacement)
-                .build();
-            finalMessage = finalMessage.replaceText(itemConfig);
+            replacements.add(new ReplacementInstruction(
+                Pattern.compile("(?i)\\[(item|i)\\]"),
+                emptyReplacement
+            ));
             replacedAny = true;
-            itemReplacement = emptyReplacement;
         }
 
         if (invReplacement != null) {
-            TextReplacementConfig invConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[(inventory|inv)\\]"))
-                .replacement(invReplacement)
-                .build();
-            finalMessage = finalMessage.replaceText(invConfig);
+            replacements.add(new ReplacementInstruction(
+                Pattern.compile("(?i)\\[(inventory|inv)\\]"),
+                invReplacement
+            ));
             replacedAny = true;
         }
 
         if (enderReplacement != null) {
-            TextReplacementConfig enderConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[(echest|ender|enderchest)\\]"))
-                .replacement(enderReplacement)
-                .build();
-            finalMessage = finalMessage.replaceText(enderConfig);
+            replacements.add(new ReplacementInstruction(
+                Pattern.compile("(?i)\\[(echest|ender|enderchest)\\]"),
+                enderReplacement
+            ));
             replacedAny = true;
         }
 
         if (shulkerReplacement != null) {
-            TextReplacementConfig shulkerConfig = TextReplacementConfig.builder()
-                .match(Pattern.compile("(?i)\\[shulker\\]"))
-                .replacement(shulkerReplacement)
-                .build();
-            finalMessage = finalMessage.replaceText(shulkerConfig);
+            replacements.add(new ReplacementInstruction(
+                Pattern.compile("(?i)\\[shulker\\]"),
+                shulkerReplacement
+            ));
             replacedAny = true;
         }
 
-        return new ProcessedResult(replacedAny, finalMessage, itemReplacement, invReplacement, enderReplacement, shulkerReplacement);
+        // Add custom placeholder API replacements
+        for (PluginConfig.CustomPlaceholder cp : matchedCustoms) {
+            String parsedText = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
+                ? me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, cp.displayFormat)
+                : cp.displayFormat;
+            Component rep = MiniMessage.miniMessage().deserialize(parsedText);
+
+            if (cp.hoverFormat != null && !cp.hoverFormat.isEmpty()) {
+                String parsedHover = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
+                    ? me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, cp.hoverFormat)
+                    : cp.hoverFormat;
+                rep = rep.hoverEvent(HoverEvent.showText(MiniMessage.miniMessage().deserialize(parsedHover)));
+            }
+
+            if (cp.clickCommand != null && !cp.clickCommand.isEmpty()) {
+                String parsedClick = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
+                    ? me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, cp.clickCommand)
+                    : cp.clickCommand;
+                rep = rep.clickEvent(ClickEvent.runCommand(parsedClick));
+            }
+
+            for (String tag : cp.tags) {
+                replacements.add(new ReplacementInstruction(
+                    Pattern.compile("(?i)" + Pattern.quote(tag)),
+                    rep
+                ));
+            }
+            replacedAny = true;
+        }
+
+        // Apply replacements to the final message Component
+        Component finalMessage = message;
+        for (ReplacementInstruction ri : replacements) {
+            finalMessage = finalMessage.replaceText(TextReplacementConfig.builder()
+                .match(ri.pattern)
+                .replacement(ri.replacement)
+                .build());
+        }
+
+        return new ProcessedResult(replacedAny, finalMessage, replacements);
     }
 }

@@ -170,4 +170,50 @@ public class PluginConfig implements VersionedConfig {
         @Comment("Maximum number of custom skulls to keep in the cache before cleaning. Default is 1000.")
         public int skullCacheMaxSize = 1000;
     }
+
+    @Comment("Custom Placeholder Showcase Settings")
+    public java.util.Map<String, CustomPlaceholder> customPlaceholders = java.util.Map.of(
+        "balance", new CustomPlaceholder(
+            java.util.List.of("[bal]", "[money]", "[balance]"),
+            "<gold>[Balance: %vault_eco_balance_fixed%]</gold>",
+            "<yellow>Click to view balance stats</yellow>",
+            "",
+            "chatitem.showcase.balance"
+        ),
+        "coords", new CustomPlaceholder(
+            java.util.List.of("[coords]", "[pos]"),
+            "<green>[X: %player_x%, Y: %player_y%, Z: %player_z%]</green>",
+            "<gray>Current Coordinates</gray>",
+            "",
+            "chatitem.showcase.coords"
+        )
+    );
+
+    @ConfigSerializable
+    public static class CustomPlaceholder {
+        @Comment("List of tags that will trigger this custom placeholder showcase")
+        public java.util.List<String> tags = java.util.List.of("[bal]", "[money]", "[balance]");
+
+        @Comment("The format/text template to display in chat. PlaceholderAPI placeholders will be parsed.")
+        public String displayFormat = "<gold>[Balance: %vault_eco_balance_fixed%]</gold>";
+
+        @Comment("Hover text format. Leave empty to disable.")
+        public String hoverFormat = "<yellow>Click to view balance stats</yellow>";
+
+        @Comment("Click command to run when clicked. Leave empty to disable.")
+        public String clickCommand = "";
+
+        @Comment("Permission required to use this showcase tag. Leave empty to allow everyone.")
+        public String permissionNode = "chatitem.showcase.balance";
+
+        public CustomPlaceholder() {}
+
+        public CustomPlaceholder(java.util.List<String> tags, String displayFormat, String hoverFormat, String clickCommand, String permissionNode) {
+            this.tags = tags;
+            this.displayFormat = displayFormat;
+            this.hoverFormat = hoverFormat;
+            this.clickCommand = clickCommand;
+            this.permissionNode = permissionNode;
+        }
+    }
 }
