@@ -46,9 +46,6 @@ public class PluginConfig implements VersionedConfig {
         public boolean op = true;
     }
 
-    @Comment("Language, specify the language file to use, for chatitem `en_US` which will load `/lang/en_US.json`")
-    public String language = "en_US";
-
     @Comment("Item Showcase Settings")
     public ItemShowcase itemShowcase = new ItemShowcase();
 
