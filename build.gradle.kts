@@ -26,7 +26,6 @@ dependencies {
     compileOnly(libs.annotations)
     compileOnly(libs.placeholderapi)
 
-    implementation(libs.morepaperlib)
     implementation(libs.configurate.core)
     implementation(libs.configurate.yaml)
     implementation(libs.configurate.interfaces.core)
@@ -44,9 +43,11 @@ tasks {
     shadowJar {
         archiveClassifier.set("")
 
+        // Minimize shaded jar size by removing unused classes
+        minimize()
+
         // Relocate libraries to avoid conflicts
         val prefix = "io.github.lunatech.chatitem.libs"
-        relocate("space.arim.morepaperlib", "$prefix.morepaperlib")
         relocate("org.spongepowered.configurate", "$prefix.configurate")
         relocate("org.snakeyaml", "$prefix.snakeyaml")
         relocate("io.leangen.geantyref", "$prefix.geantyref")
