@@ -171,21 +171,32 @@ public class PluginConfig implements VersionedConfig {
         public int skullCacheMaxSize = 1000;
     }
 
-    @Comment("Custom Placeholder Showcase Settings")
+    @Comment("""
+        Custom Placeholder Showcase Settings
+        ------------------------------------
+        Server owners can register custom tags that will be parsed dynamically using PlaceholderAPI.
+        
+        Fields per entry:
+        - tags: List of tags that trigger this showcase (case-insensitive, e.g. [coords]).
+        - display-format: The text or MiniMessage format to send to chat. PAPI placeholders are parsed.
+        - hover-format: MiniMessage hover tooltip to display. Leave empty to disable.
+        - click-command: Command to execute when the tag is clicked. Leave empty to disable.
+        - permission-node: Permission node required to trigger this custom tag.
+        """)
     public java.util.Map<String, CustomPlaceholder> customPlaceholders = java.util.Map.of(
-        "balance", new CustomPlaceholder(
-            java.util.List.of("[bal]", "[money]", "[balance]"),
-            "<gold>[Balance: %vault_eco_balance_fixed%]</gold>",
-            "<yellow>Click to view balance stats</yellow>",
-            "",
-            "chatitem.showcase.balance"
-        ),
         "coords", new CustomPlaceholder(
             java.util.List.of("[coords]", "[pos]"),
             "<green>[X: %player_x%, Y: %player_y%, Z: %player_z%]</green>",
-            "<gray>Current Coordinates</gray>",
+            "<gray>%player_name%'s Current Coordinates</gray>",
             "",
             "chatitem.showcase.coords"
+        ),
+        "balance", new CustomPlaceholder(
+            java.util.List.of("[bal]", "[money]", "[balance]"),
+            "<gold>[Balance: %vault_eco_balance_fixed%]</gold>",
+            "<yellow>%player_name%'s Current Balance</yellow>",
+            "",
+            "chatitem.showcase.balance"
         )
     );
 
