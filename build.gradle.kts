@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.github.lunatech"
-version = "1.0.0-SNAPSHOT"
+version = findProperty("altVer") ?: "1.2.1-SNAPSHOT"
 description = "A lightweight inventory and item showcase plugin."
 
 java {
