@@ -2,7 +2,6 @@ package io.github.lunatech.chatitem.hook;
 
 import io.github.lunatech.chatitem.ChatItem;
 import io.github.lunatech.chatitem.Reloadable;
-import io.github.lunatech.chatitem.utility.Logger;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -26,7 +25,7 @@ public class HookManager implements Reloadable {
         for (Hook hook : Hook.values()) {
             try {
                 if (hook.getPluginName() != null && Bukkit.getPluginManager().getPlugin(hook.getPluginName()) == null) {
-                    Logger.get().warn(
+                    plugin.getComponentLogger().warn(
                         MiniMessage.miniMessage().deserialize(
                             "<yellow><plugin> is not installed on this server. <plugin> support has been disabled.",
                             Placeholder.parsed("plugin", hook.getPluginName())
@@ -45,7 +44,7 @@ public class HookManager implements Reloadable {
                 hookInstance.onLoad(plugin);
 
                 if (hook.getPluginName() != null) {
-                    Logger.get().info(
+                    plugin.getComponentLogger().info(
                         MiniMessage.miniMessage().deserialize(
                             "<green><plugin> has been found on this server. <plugin> support enabled.",
                             Placeholder.parsed("plugin", hook.getPluginName())
@@ -53,7 +52,7 @@ public class HookManager implements Reloadable {
                     );
                 }
             } catch (Exception e) {
-                Logger.get().warn(
+                plugin.getComponentLogger().warn(
                     MiniMessage.miniMessage().deserialize(
                         "<yellow><hook> failed to load: <exception>",
                         Placeholder.parsed("hook", hook.getHookClass().getName()),
