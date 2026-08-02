@@ -4,13 +4,13 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 
 public final class Util {
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    private static final SecureRandom random = new SecureRandom();
+    private static final Random random = new Random();
 
     // In-memory read-only Set containing pre-compiled vanilla item and block sprite paths
     private static final Set<String> vanillaSprites = new HashSet<>();
@@ -33,39 +33,17 @@ public final class Util {
     }
 
     /**
-     * Generates a random string using alphanumeric characters
-     *
-     * @return a random string
-     */
-    public static String randomString() {
-        return random.ints(generateRandomInt(1, 256), 0, CHARACTERS.length())
-            .mapToObj(CHARACTERS::charAt)
-            .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
-            .toString();
-    }
-
-    /**
      * Generates a random string of specified length using alphanumeric characters
      *
      * @param length the desired length of the random string
      * @return a random string of the specified length
      */
     public static String randomString(int length) {
-        return random.ints(length, 0, CHARACTERS.length())
-            .mapToObj(CHARACTERS::charAt)
-            .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
-            .toString();
-    }
-
-    /**
-     * Generates a random integer between lower and upper bounds (inclusive)
-     *
-     * @param lowerBound the minimum value (inclusive)
-     * @param upperBound the maximum value (inclusive)
-     * @return a random integer within the specified range
-     */
-    public static int generateRandomInt(int lowerBound, int upperBound) {
-        return random.nextInt(lowerBound, upperBound + 1);
+        char[] buffer = new char[length];
+        for (int i = 0; i < length; i++) {
+            buffer[i] = CHARACTERS.charAt(random.nextInt(CHARACTERS.length()));
+        }
+        return new String(buffer);
     }
 
     /**
@@ -125,30 +103,7 @@ public final class Util {
             // Ignore and fall back
         }
 
-        // 3. Query NMS via reflection to dynamically identify blocks with animated/invisible inventory sprites
-        try {
-            Class<?> craftMagicNumbers = Class.forName("org.bukkit.craftbukkit.util.CraftMagicNumbers");
-            java.lang.reflect.Method getBlockMethod = craftMagicNumbers.getDeclaredMethod("getBlock", org.bukkit.Material.class);
-            Object nmsBlock = getBlockMethod.invoke(null, material);
-            if (nmsBlock != null) {
-                java.lang.reflect.Method defaultBlockStateMethod = nmsBlock.getClass().getMethod("defaultBlockState");
-                Object defaultBlockState = defaultBlockStateMethod.invoke(nmsBlock);
-                java.lang.reflect.Method getRenderShapeMethod = nmsBlock.getClass().getMethod("getRenderShape", defaultBlockState.getClass());
-                Object renderShapeObj = getRenderShapeMethod.invoke(nmsBlock, defaultBlockState);
-                if (renderShapeObj != null) {
-                    String shapeName = ((Enum<?>) renderShapeObj).name();
-                    // ENTITYBLOCK_ANIMATED = Chests, Shulker Boxes, Ender Chests, Bell, Conduit, etc.
-                    // INVISIBLE = Air, Light, structures
-                    if ("ENTITYBLOCK_ANIMATED".equals(shapeName) || "INVISIBLE".equals(shapeName)) {
-                        return true;
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-            // Safe fallback if reflection fails due to version mismatches
-        }
-
-        // 4. Suffix fallback for other specific blocks (chests, heads, utility blocks, campfire, heavy core, etc.)
+        // 3. Suffix fallback for other specific blocks (chests, heads, utility blocks, campfire, heavy core, etc.)
         String name = material.name();
         return name.endsWith("CHEST")
             || name.endsWith("SHULKER_BOX")
